@@ -1,20 +1,30 @@
 import { parseStkCallback } from "../../../../lib/daraja";
-import { getTransactionByCheckoutId, completeTransaction, listWebhooksForAccount } from "../../../../lib/db";
+import {
+  getTransactionByCheckoutId,
+  completeTransaction,
+  listWebhooksForAccount,
+  getAccountById,
+  recordSuccess,
+  recordFailure,
+} from "../../../../lib/db";
+import crypto from "crypto";
 
-// Safaricom posts here for every STK push a developer's linked account triggers.
-// We update our own record, then forward the same payload to any webhook URLs
-// the developer has registered for this account.
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
-
-  const { accountId } = req.query;
+  const { accountId, token } = req.query;
   const result = parseStkCallback(req.body);
-  if (!result) return;
+  if (!result) return res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
+
+  const account = await getAccountById(accountId);
+  if (!account || !token || !timingSafeStringEqual(token, account.callback_token)) {
+    return res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
+  }
 
   const txn = await getTransactionByCheckoutId(result.checkoutRequestId);
-  if (!txn) return;
+  if (!txn || txn.type !== "stkpush" || String(txn.account_id) !== String(account.id)) {
+    return res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
+  }
 
   await completeTransaction({
     checkoutRequestId: result.checkoutRequestId,
@@ -23,7 +33,13 @@ export default async function handler(req, res) {
     resultDesc: result.resultDesc,
   });
 
-  const webhooks = await listWebhooksForAccount(accountId);
+  if (result.success) {
+    await recordSuccess(account.id);
+  } else {
+    await recordFailure(account.id, txn.id);
+  }
+
+  const webhooks = await listWebhooksForAccount(account.id);
   const payload = {
     ResponseCode: result.success ? 0 : result.resultCode,
     ResponseDescription: result.resultDesc,
@@ -43,4 +59,13 @@ export default async function handler(req, res) {
       })
     )
   );
+
+  res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
+}
+
+function timingSafeStringEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b || ""));
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
 }
