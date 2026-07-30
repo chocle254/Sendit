@@ -3,11 +3,16 @@ import { verifyPassword, createSessionCookie } from "../../../lib/auth";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  const { email, password } = req.body || {};
-  const user = await getUserByEmail((email || "").toLowerCase());
-  if (!user || !verifyPassword(password || "", user.password_hash)) {
-    return res.status(401).json({ error: "Incorrect email or password." });
+  try {
+    const { email, password } = req.body || {};
+    const user = await getUserByEmail((email || "").toLowerCase());
+    if (!user || !verifyPassword(password || "", user.password_hash)) {
+      return res.status(401).json({ error: "Incorrect email or password." });
+    }
+    res.setHeader("Set-Cookie", createSessionCookie(user.id));
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error("login failed:", err);
+    res.status(500).json({ error: "Something went wrong logging you in. Please try again." });
   }
-  res.setHeader("Set-Cookie", createSessionCookie(user.id));
-  res.status(200).json({ ok: true });
 }
