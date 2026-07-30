@@ -1,8 +1,6 @@
-import { getAccountByApiKey, createTransaction } from "../../../lib/db";
+import { getAccountByApiKey, createTransaction, incrementFreeUsage, evaluateAccountUsage } from "../../../lib/db";
 import { stkPush, normalizePhone } from "../../../lib/daraja";
 
-// Public API for developers who have linked and activated an account.
-// Auth: Authorization: Bearer <api_key>
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -11,10 +9,15 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(401).json({ error: "Missing Authorization: Bearer <api_key> header." });
 
   const account = await getAccountByApiKey(apiKey);
-  if (!account) return res.status(401).json({ error: "Invalid or inactive API key." });
+  if (!account) return res.status(401).json({ error: "Invalid API key." });
+
+  const usage = evaluateAccountUsage(account);
+  if (!usage.allowed) return res.status(402).json({ error: usage.reason });
 
   const { phone, amount, account_reference, transaction_desc } = req.body || {};
-  if (!phone || !amount) return res.status(400).json({ error: "phone and amount are required." });
+  if (!phone || !amount || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+    return res.status(400).json({ error: "phone and a positive numeric amount are required." });
+  }
 
   try {
     const normalizedPhone = normalizePhone(phone);
@@ -26,7 +29,7 @@ export default async function handler(req, res) {
       passkey: account.passkey,
       amount,
       phone: normalizedPhone,
-      callbackUrl: `${process.env.BASE_URL}/api/v1/callback/${account.id}`,
+      callbackUrl: `${process.env.BASE_URL}/api/v1/callback/${account.id}?token=${account.callback_token}`,
       accountReference: account_reference || account.business_name,
       transactionDesc: transaction_desc || "Payment",
     });
@@ -40,6 +43,8 @@ export default async function handler(req, res) {
       amount,
       accountReference: account_reference || account.business_name,
     });
+
+    await incrementFreeUsage(account.id);
 
     res.status(200).json({
       ResponseCode: "0",
