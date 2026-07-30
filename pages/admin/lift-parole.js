@@ -1,4 +1,4 @@
-import { liftParole, getAccountById } from "../../../lib/db";
+import { liftParole, getAccountById } from "../lib/db";
 import crypto from "crypto";
 
 // Minimal shared-secret gate — swap for a real admin login before this
