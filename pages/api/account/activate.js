@@ -5,16 +5,16 @@ import { stkPush } from "../../../lib/daraja";
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const userId = getUserIdFromReq(req);
-  if (!userId) return res.status(401).json({ error: "Not logged in" });
-
-  const { accountId, phone } = req.body || {};
-  if (!accountId || !phone) return res.status(400).json({ error: "accountId and phone are required." });
-
-  const account = await getAccountById(accountId);
-  if (!account || account.user_id !== userId) return res.status(404).json({ error: "Account not found." });
-
   try {
+    const userId = getUserIdFromReq(req);
+    if (!userId) return res.status(401).json({ error: "Not logged in" });
+
+    const { accountId, phone } = req.body || {};
+    if (!accountId || !phone) return res.status(400).json({ error: "accountId and phone are required." });
+
+    const account = await getAccountById(accountId);
+    if (!account || account.user_id !== userId) return res.status(404).json({ error: "Account not found." });
+
     const stk = await stkPush({
       env: process.env.PLATFORM_ENV || "sandbox",
       consumerKey: process.env.PLATFORM_CONSUMER_KEY,
@@ -40,6 +40,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ message: "STK prompt sent. Enter your PIN to activate.", CheckoutRequestID: stk.CheckoutRequestID });
   } catch (err) {
-    res.status(502).json({ error: err.message });
+    console.error("activate failed:", err);
+    res.status(502).json({ error: err.message || "Could not start the activation payment. Please try again." });
   }
 }
