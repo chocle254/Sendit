@@ -13,15 +13,28 @@ export default function Signup() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) return setError(data.error || "Something went wrong.");
-    router.push("/dashboard");
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        // Response wasn't JSON (e.g. an infra-level 500 with an HTML body).
+      }
+      if (!res.ok) {
+        setError(data.error || `Request failed (${res.status}). Please try again.`);
+        return;
+      }
+      router.push("/dashboard");
+    } catch (err) {
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
