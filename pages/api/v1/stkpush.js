@@ -4,33 +4,41 @@ import { stkPush, normalizePhone } from "../../../lib/daraja";
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const authHeader = req.headers.authorization || "";
-  const apiKey = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  if (!apiKey) return res.status(401).json({ error: "Missing Authorization: Bearer <api_key> header." });
-
-  const account = await getAccountByApiKey(apiKey);
-  if (!account) return res.status(401).json({ error: "Invalid API key." });
-
-  const usage = evaluateAccountUsage(account);
-  if (!usage.allowed) return res.status(402).json({ error: usage.reason });
-
-  const { phone, amount, account_reference, transaction_desc } = req.body || {};
-  if (!phone || !amount || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
-    return res.status(400).json({ error: "phone and a positive numeric amount are required." });
-  }
-
   try {
+    const authHeader = req.headers.authorization || "";
+    const apiKey = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!apiKey) return res.status(401).json({ error: "Missing Authorization: Bearer <api_key> header." });
+
+    const account = await getAccountByApiKey(apiKey);
+    if (!account) return res.status(401).json({ error: "Invalid API key." });
+
+    const usage = evaluateAccountUsage(account);
+    if (!usage.allowed) return res.status(402).json({ error: usage.reason });
+
+    const { phone, amount, account_reference, transaction_desc } = req.body || {};
+    if (!phone || !amount || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      return res.status(400).json({ error: "phone and a positive numeric amount are required." });
+    }
+
+    const isPaybill = account.account_type === "paybill";
+    const partyB = isPaybill ? account.paybill_number : account.till_number;
+    const accountReference = isPaybill
+      ? (account.paybill_account_number || account_reference || account.business_name)
+      : (account_reference || account.business_name);
+
     const normalizedPhone = normalizePhone(phone);
     const stk = await stkPush({
       env: process.env.PLATFORM_ENV || "sandbox",
-      consumerKey: account.consumer_key,
-      consumerSecret: account.consumer_secret,
-      shortcode: account.shortcode,
-      passkey: account.passkey,
+      consumerKey: process.env.PLATFORM_CONSUMER_KEY,
+      consumerSecret: process.env.PLATFORM_CONSUMER_SECRET,
+      shortcode: process.env.PLATFORM_SHORTCODE,
+      passkey: process.env.PLATFORM_PASSKEY,
+      partyB,
+      transactionType: isPaybill ? "CustomerPayBillOnline" : "CustomerBuyGoodsOnline",
       amount,
       phone: normalizedPhone,
       callbackUrl: `${process.env.BASE_URL}/api/v1/callback/${account.id}?token=${account.callback_token}`,
-      accountReference: account_reference || account.business_name,
+      accountReference,
       transactionDesc: transaction_desc || "Payment",
     });
 
@@ -41,7 +49,7 @@ export default async function handler(req, res) {
       merchantRequestId: stk.MerchantRequestID,
       phone: normalizedPhone,
       amount,
-      accountReference: account_reference || account.business_name,
+      accountReference,
     });
 
     await incrementFreeUsage(account.id);
@@ -53,6 +61,7 @@ export default async function handler(req, res) {
       CheckoutRequestID: stk.CheckoutRequestID,
     });
   } catch (err) {
-    res.status(502).json({ error: err.message });
+    console.error("stkpush failed:", err);
+    res.status(502).json({ error: err.message || "STK push failed." });
   }
 }
