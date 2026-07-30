@@ -1,0 +1,58 @@
+import { getAccountByApiKey, createTransaction, incrementFreeUsage, evaluateAccountUsage } from "../../../lib/db";
+import { stkPush, normalizePhone } from "../../../lib/daraja";
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const authHeader = req.headers.authorization || "";
+  const apiKey = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!apiKey) return res.status(401).json({ error: "Missing Authorization: Bearer <api_key> header." });
+
+  const account = await getAccountByApiKey(apiKey);
+  if (!account) return res.status(401).json({ error: "Invalid API key." });
+
+  const usage = evaluateAccountUsage(account);
+  if (!usage.allowed) return res.status(402).json({ error: usage.reason });
+
+  const { phone, amount, account_reference, transaction_desc } = req.body || {};
+  if (!phone || !amount || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+    return res.status(400).json({ error: "phone and a positive numeric amount are required." });
+  }
+
+  try {
+    const normalizedPhone = normalizePhone(phone);
+    const stk = await stkPush({
+      env: process.env.PLATFORM_ENV || "sandbox",
+      consumerKey: account.consumer_key,
+      consumerSecret: account.consumer_secret,
+      shortcode: account.shortcode,
+      passkey: account.passkey,
+      amount,
+      phone: normalizedPhone,
+      callbackUrl: `${process.env.BASE_URL}/api/v1/callback/${account.id}?token=${account.callback_token}`,
+      accountReference: account_reference || account.business_name,
+      transactionDesc: transaction_desc || "Payment",
+    });
+
+    await createTransaction({
+      accountId: account.id,
+      type: "stkpush",
+      checkoutRequestId: stk.CheckoutRequestID,
+      merchantRequestId: stk.MerchantRequestID,
+      phone: normalizedPhone,
+      amount,
+      accountReference: account_reference || account.business_name,
+    });
+
+    await incrementFreeUsage(account.id);
+
+    res.status(200).json({
+      ResponseCode: "0",
+      ResponseDescription: "Success. Request accepted for processing.",
+      MerchantRequestID: stk.MerchantRequestID,
+      CheckoutRequestID: stk.CheckoutRequestID,
+    });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+}
