@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Copy, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Plus, Copy, Eye, EyeOff, Trash2, Zap, Calendar, Coins } from "lucide-react";
 import DashboardLayout from "../../components/DashboardLayout";
 import Skeleton from "../../components/Skeleton";
 import { Field } from "../signup";
+
+const PLAN_PRICE = { monthly: 500, yearly: 5000 };
 
 const EMPTY_FORM = {
   businessName: "",
@@ -21,6 +23,13 @@ export default function LinkAccount() {
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [error, setError] = useState("");
   const [reveal, setReveal] = useState({});
+  const [activatingId, setActivatingId] = useState(null); // which account's panel is open
+  const [activateMode, setActivateMode] = useState("monthly"); // 'monthly' | 'yearly' | 'tokens'
+  const [activatePhone, setActivatePhone] = useState("");
+  const [tokenAmount, setTokenAmount] = useState("100");
+  const [activating, setActivating] = useState(false);
+  const [activateError, setActivateError] = useState("");
+  const [activateMessage, setActivateMessage] = useState("");
 
   async function loadAccounts() {
     setLoadingAccounts(true);
@@ -83,6 +92,69 @@ export default function LinkAccount() {
     } finally {
       loadAccounts();
     }
+  }
+
+  function openActivate(accountId) {
+    setActivatingId((current) => (current === accountId ? null : accountId));
+    setActivateMode("monthly");
+    setActivatePhone("");
+    setTokenAmount("100");
+    setActivateError("");
+    setActivateMessage("");
+  }
+
+  async function submitActivate(e, accountId) {
+    e.preventDefault();
+    setActivateError("");
+    setActivating(true);
+    try {
+      const endpoint = activateMode === "tokens" ? "/api/account/buy-tokens" : "/api/account/subscribe";
+      const body =
+        activateMode === "tokens"
+          ? { accountId, phone: activatePhone, tokens: Number(tokenAmount) }
+          : { accountId, phone: activatePhone, plan: activateMode };
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setActivateError(data.error || "Something went wrong.");
+        return;
+      }
+      setActivateMessage("STK prompt sent — enter your PIN on your phone.");
+      pollForActivation(accountId);
+    } catch {
+      setActivateError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setActivating(false);
+    }
+  }
+
+  // Polls the account status for up to ~40s after a subscribe/token STK
+  // push, since the callback that actually applies the plan/tokens lands
+  // asynchronously once the customer enters their PIN.
+  function pollForActivation(accountId) {
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts += 1;
+      try {
+        const res = await fetch(`/api/account/status?id=${accountId}`);
+        const data = await res.json();
+        setAccounts((prev) =>
+          prev.map((a) =>
+            a.id === accountId
+              ? { ...a, plan: data.plan, plan_expires_at: data.planExpiresAt, free_tx_used: data.freeTxUsed, token_balance: data.tokenBalance }
+              : a
+          )
+        );
+      } catch {
+        // Ignore transient polling errors — the interval just retries.
+      }
+      if (attempts >= 13) clearInterval(interval); // ~40s at 3s intervals
+    }, 3000);
   }
 
   return (
@@ -246,13 +318,75 @@ export default function LinkAccount() {
                 </div>
                 <Info label="API base URL" value="/api/v1/stkpush" mono />
               </div>
-              <button
-                onClick={() => onDelete(a.id)}
-                className="flex items-center gap-1.5 text-danger text-xs mt-4 hover:underline"
-              >
-                <Trash2 size={12} />
-                Delete
-              </button>
+
+              <div className="flex items-center gap-4 mt-4">
+                <button
+                  onClick={() => openActivate(a.id)}
+                  className="flex items-center gap-1.5 text-mint text-xs font-medium hover:opacity-80"
+                >
+                  <Zap size={12} />
+                  {activatingId === a.id ? "Close" : "Activate / buy tokens"}
+                </button>
+                <button
+                  onClick={() => onDelete(a.id)}
+                  className="flex items-center gap-1.5 text-danger text-xs hover:underline"
+                >
+                  <Trash2 size={12} />
+                  Delete
+                </button>
+              </div>
+
+              <AnimatePresence>
+                {activatingId === a.id && (
+                  <motion.form
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    onSubmit={(e) => submitActivate(e, a.id)}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-4 bg-base/60 border border-line rounded-md p-4 shadow-neo-inset space-y-3">
+                      <div className="flex gap-2">
+                        <ModeButton icon={Calendar} label="Monthly · KES 500" active={activateMode === "monthly"} onClick={() => setActivateMode("monthly")} />
+                        <ModeButton icon={Calendar} label="Yearly · KES 5,000" active={activateMode === "yearly"} onClick={() => setActivateMode("yearly")} />
+                        <ModeButton icon={Coins} label="Buy tokens" active={activateMode === "tokens"} onClick={() => setActivateMode("tokens")} />
+                      </div>
+
+                      {activateMode === "tokens" ? (
+                        <div>
+                          <span className="text-xs text-muted uppercase tracking-wide">Tokens (min 25, 1 token = KES 1 = 1 transaction)</span>
+                          <input
+                            type="number"
+                            min={25}
+                            value={tokenAmount}
+                            onChange={(e) => setTokenAmount(e.target.value)}
+                            className="mt-1 w-full bg-panel border border-line rounded-md px-3 py-2 text-white shadow-neo-inset focus:outline-none focus:ring-2 focus:ring-mint/60"
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-muted text-xs">
+                          {activateMode === "monthly"
+                            ? "Unlimited STK pushes for 30 days from today (or extended from your current plan's expiry if it's still active)."
+                            : "Unlimited STK pushes for 365 days from today (or extended from your current plan's expiry if it's still active)."}
+                        </p>
+                      )}
+
+                      <Field label="Phone number to pay from (2547XXXXXXXX)" value={activatePhone} onChange={setActivatePhone} required />
+
+                      {activateError && <div className="text-danger text-sm">{activateError}</div>}
+                      {activateMessage && <div className="text-mint text-sm">{activateMessage}</div>}
+
+                      <button
+                        disabled={activating}
+                        className="bg-mint text-base px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50"
+                      >
+                        {activating ? "Sending prompt…" : "Send STK prompt"}
+                      </button>
+                    </div>
+                  </motion.form>
+                )}
+              </AnimatePresence>
             </motion.div>
           ))}
         </AnimatePresence>
@@ -273,6 +407,21 @@ function AccountCardSkeleton() {
         <Skeleton className="h-8 w-full" />
       </div>
     </div>
+  );
+}
+
+function ModeButton({ icon: Icon, label, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-all ${
+        active ? "bg-mint text-base border-mint shadow-glow-mint" : "border-line text-muted shadow-neo-sm"
+      }`}
+    >
+      <Icon size={12} />
+      {label}
+    </button>
   );
 }
 
@@ -297,10 +446,22 @@ function UsagePill({ account }) {
   if (account.status === "suspended") {
     return <span className="text-xs px-2 py-1 rounded-full text-danger bg-dangerdim">Suspended</span>;
   }
+  const planActive = account.plan_expires_at && new Date(account.plan_expires_at) > new Date();
+  if (planActive) {
+    const label = account.plan === "yearly" ? "Yearly plan" : "Monthly plan";
+    return (
+      <span className="text-xs px-2 py-1 rounded-full text-mint bg-mintdim">
+        {label} · until {new Date(account.plan_expires_at).toLocaleDateString()}
+      </span>
+    );
+  }
   const used = account.free_tx_used ?? 0;
   const remaining = Math.max(0, 25 - used);
   if (remaining === 0) {
-    return <span className="text-xs px-2 py-1 rounded-full text-amber bg-amberdim">Free tier used — pay KES 350</span>;
+    if ((account.token_balance ?? 0) >= 1) {
+      return <span className="text-xs px-2 py-1 rounded-full text-mint bg-mintdim">{account.token_balance} token{account.token_balance === 1 ? "" : "s"} left</span>;
+    }
+    return <span className="text-xs px-2 py-1 rounded-full text-amber bg-amberdim">Free tier used — subscribe or buy tokens</span>;
   }
   return <span className="text-xs px-2 py-1 rounded-full text-mint bg-mintdim">{remaining} free left</span>;
 }
