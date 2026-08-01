@@ -12,6 +12,10 @@ export default function Webhooks() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // Same gating lib/db.js's evaluateAccountUsage() applies before an
+  // stkpush — there's no literal 'active' status, so a trial account with
+  // free credits remaining still needs to show up here.
+  const FREE_TX_LIMIT = 25;
   function load() {
     Promise.all([
       fetch("/api/webhooks").then((r) => r.json()),
@@ -19,7 +23,12 @@ export default function Webhooks() {
     ])
       .then(([webhooksData, accountsData]) => {
         setWebhooks(webhooksData.webhooks || []);
-        const active = (accountsData.accounts || []).filter((a) => a.status === "active");
+        const active = (accountsData.accounts || []).filter(
+          (a) =>
+            a.status !== "payment_failed" &&
+            a.status !== "suspended" &&
+            (a.free_tx_used ?? 0) < FREE_TX_LIMIT
+        );
         setAccounts(active);
         if (active[0]) setAccountId(active[0].id);
       })
