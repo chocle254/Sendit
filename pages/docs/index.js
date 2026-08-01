@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Head from "next/head";
+import Link from "next/link";
+import { motion } from "framer-motion";
 import Logo from "../../components/Logo";
 
 const TABS = ["Getting Started", "API Reference", "Webhooks"];
@@ -12,53 +14,69 @@ export default function Docs() {
   const keyDisplay = apiKey || "sk_live_YOUR_API_KEY";
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-base text-white">
       <Head><title>Sendit Docs</title></Head>
-      <Logo size={32} />
-      <h1 className="text-2xl font-bold mt-6 mb-2">Developer Docs</h1>
-      <p className="text-gray-600 mb-6">
-        Enter your Sendit email and API key below (only used to fill in the examples on this page — nothing is sent anywhere).
-      </p>
+      <div className="max-w-3xl mx-auto px-4 py-10">
+        <Link href="/"><Logo size={32} /></Link>
+        <h1 className="font-display text-2xl font-bold mt-6 mb-2">Developer Docs</h1>
+        <p className="text-muted mb-6">
+          Enter your Sendit email and API key below (only used to fill in the examples on this page — nothing is sent anywhere).
+        </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8 bg-gray-50 p-4 rounded-lg">
-        <input
-          className="border rounded px-3 py-2"
-          placeholder="Your Sendit email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          className="border rounded px-3 py-2"
-          placeholder="Your API key (sk_live_...)"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8 glass p-4 rounded-lg shadow-neo-sm">
+          <input
+            className="bg-base/60 border border-line rounded-md px-3 py-2 text-white shadow-neo-inset focus:outline-none focus:ring-2 focus:ring-mint/60"
+            placeholder="Your Sendit email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            className="bg-base/60 border border-line rounded-md px-3 py-2 text-white shadow-neo-inset focus:outline-none focus:ring-2 focus:ring-mint/60"
+            placeholder="Your API key (sk_live_...)"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+          />
+        </div>
+
+        <div className="relative flex gap-2 border-b border-line mb-6">
+          {TABS.map((t, i) => (
+            <button
+              key={t}
+              onClick={() => setTab(i)}
+              className={`relative px-4 py-2.5 text-sm font-medium transition-colors ${
+                tab === i ? "text-mint" : "text-muted hover:text-white"
+              }`}
+            >
+              {t}
+              {tab === i && (
+                <motion.div
+                  layoutId="docs-tab-underline"
+                  className="absolute left-0 right-0 -bottom-px h-0.5 bg-mint rounded-full shadow-glow-mint"
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          {tab === 0 && <GettingStarted email={email} />}
+          {tab === 1 && <ApiReference apiKey={keyDisplay} />}
+          {tab === 2 && <Webhooks />}
+        </motion.div>
       </div>
-
-      <div className="flex gap-2 border-b mb-6">
-        {TABS.map((t, i) => (
-          <button
-            key={t}
-            onClick={() => setTab(i)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 ${
-              tab === i ? "border-indigo-600 text-indigo-600" : "border-transparent text-gray-500"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {tab === 0 && <GettingStarted email={email} />}
-      {tab === 1 && <ApiReference apiKey={keyDisplay} />}
-      {tab === 2 && <Webhooks />}
     </div>
   );
 }
 
 function GettingStarted({ email }) {
   return (
-    <div className="prose max-w-none">
+    <Prose>
       <h2>1. Create an account</h2>
       <p>Sign up{email ? ` as ${email}` : ""} at <code>/signup</code>.</p>
 
@@ -87,7 +105,7 @@ function GettingStarted({ email }) {
 
       <h2>6. Register a webhook</h2>
       <p>Add a webhook URL in your dashboard to get notified when a payment completes or fails.</p>
-    </div>
+    </Prose>
   );
 }
 
@@ -103,7 +121,7 @@ function ApiReference({ apiKey }) {
   }'`;
 
   return (
-    <div className="prose max-w-none">
+    <Prose>
       <h2>POST /api/v1/stkpush</h2>
       <p>Triggers an STK push (M-Pesa PIN prompt) to a customer's phone.</p>
 
@@ -142,13 +160,13 @@ function ApiReference({ apiKey }) {
         <li><code>400</code> — missing/invalid phone or amount</li>
         <li><code>502</code> — Daraja/Safaricom rejected the request</li>
       </ul>
-    </div>
+    </Prose>
   );
 }
 
 function Webhooks() {
   return (
-    <div className="prose max-w-none">
+    <Prose>
       <h2>Webhook payload</h2>
       <p>
         When Safaricom confirms (or rejects) an STK push, Sendit forwards this JSON payload via
@@ -177,6 +195,29 @@ function Webhooks() {
         transaction status via your dashboard/transactions API before releasing goods or services
         for high-value orders. Signed webhooks (HMAC) are on the roadmap.
       </p>
+    </Prose>
+  );
+}
+
+// Hand-styled in place of the Tailwind Typography plugin (not installed) —
+// keeps the docs on the same dark/glass system as the rest of the app
+// instead of an unstyled `prose` class with no plugin behind it.
+function Prose({ children }) {
+  return (
+    <div
+      className="text-[15px] leading-relaxed text-white/90
+        [&>h2]:font-display [&>h2]:text-lg [&>h2]:font-semibold [&>h2]:text-white [&>h2]:mt-8 [&>h2]:mb-2 [&>h2]:first:mt-0
+        [&>h3]:font-display [&>h3]:text-base [&>h3]:font-semibold [&>h3]:text-white [&>h3]:mt-6 [&>h3]:mb-2
+        [&>p]:text-muted [&>p]:my-2
+        [&_strong]:text-white [&_strong]:font-medium
+        [&_code]:font-mono [&_code]:text-xs [&_code]:bg-panel2 [&_code]:border [&_code]:border-line [&_code]:rounded [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-mint
+        [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:space-y-1 [&>ul]:text-muted [&>ul]:my-2
+        [&>pre]:glass [&>pre]:shadow-neo-sm [&>pre]:rounded-lg [&>pre]:p-4 [&>pre]:my-3 [&>pre]:overflow-x-auto [&>pre_code]:bg-transparent [&>pre_code]:border-0 [&>pre_code]:p-0 [&>pre_code]:text-white/90
+        [&>table]:w-full [&>table]:my-3 [&>table]:text-sm [&>table]:border-collapse
+        [&_th]:text-left [&_th]:text-muted [&_th]:font-normal [&_th]:border-b [&_th]:border-line [&_th]:py-2 [&_th]:pr-4
+        [&_td]:border-b [&_td]:border-line/50 [&_td]:py-2 [&_td]:pr-4"
+    >
+      {children}
     </div>
   );
 }
