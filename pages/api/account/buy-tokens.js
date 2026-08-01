@@ -2,7 +2,8 @@ import { getUserIdFromReq } from "../../../lib/auth";
 import { getAccountById, createTransaction } from "../../../lib/db";
 import { stkPush } from "../../../lib/daraja";
 
-// 1 token = 1 KES. Minimum 25 (one parole penalty's worth).
+// 1 token = 1 KES = 1 extra transaction once the free tier is used up
+// (also doubles as the parole penalty buffer). Minimum 25.
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
