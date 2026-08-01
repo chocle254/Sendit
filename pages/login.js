@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { Field } from "./signup";
 
 export default function Login() {
@@ -39,27 +40,46 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-base text-white flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-base text-white flex items-center justify-center px-6 relative overflow-hidden">
+      <div className="pointer-events-none absolute top-1/3 -left-24 h-80 w-80 rounded-full bg-amber/10 blur-3xl animate-float" />
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="relative z-10 w-full max-w-sm glass rounded-xl shadow-glass p-7"
+      >
         <div className="font-mono text-mint font-semibold mb-8">stk://gateway</div>
-        <h1 className="text-2xl font-semibold mb-1">Log in</h1>
+        <h1 className="font-display text-2xl font-semibold mb-1">Log in</h1>
         <p className="text-muted text-sm mb-6">Welcome back.</p>
         <form onSubmit={onSubmit} className="space-y-4">
           <Field label="Email" type="email" value={email} onChange={setEmail} required />
           <Field label="Password" type="password" value={password} onChange={setPassword} required />
-          {error && <div className="text-danger text-sm">{error}</div>}
-          <button
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="text-danger text-sm overflow-hidden"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <motion.button
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.98 }}
             disabled={loading}
-            className="w-full bg-mint text-base font-medium py-2.5 rounded-md hover:opacity-90 disabled:opacity-50"
+            className="w-full bg-mint text-base font-medium py-2.5 rounded-md shadow-glow-mint disabled:opacity-50 disabled:shadow-none"
           >
             {loading ? "Logging in…" : "Log in"}
-          </button>
+          </motion.button>
         </form>
         <p className="text-muted text-sm mt-6">
           Need an account?{" "}
-          <Link href="/signup" className="text-mint">Sign up</Link>
+          <Link href="/signup" className="text-mint hover:underline">Sign up</Link>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }
