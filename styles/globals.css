@@ -2,11 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
 html, body {
   background-color: #0B1220;
   color: #E6ECF5;
+  font-family: var(--font-body);
 }
+
+/* A faint grain over the base color so glass surfaces have something with
+   texture to refract — flat blur alone reads flat. Kept just above
+   imperceptible; blend-mode keeps it from muddying the navy. */
+body {
+  position: relative;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+#__next { position: relative; z-index: 1; }
+
+h1, h2, h3, h4, .font-display { font-family: var(--font-display); }
 
 * { -webkit-tap-highlight-color: transparent; }
 
 ::selection { background: #34D399; color: #0B1220; }
+
+/* Thin, low-contrast scrollbar that matches the panel/line palette instead
+   of the OS default. */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #22304A; border-radius: 999px; border: 2px solid #0B1220; }
+::-webkit-scrollbar-thumb:hover { background: #2c3f60; }
+* { scrollbar-width: thin; scrollbar-color: #22304A transparent; }
+
+/* Reusable glass surface — translucent panel + blur + a hairline top
+   highlight standing in for a specular edge. Two strengths: default for
+   cards sitting on the plain background, "strong" for surfaces that sit
+   over busy content (tables, stacked cards) and need more opacity to stay
+   legible. */
+.glass {
+  background: rgba(18, 27, 46, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(148, 180, 220, 0.12);
+}
+.glass-strong {
+  background: rgba(18, 27, 46, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(148, 180, 220, 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
