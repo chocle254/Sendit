@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, Copy, Eye, EyeOff, Trash2 } from "lucide-react";
 import DashboardLayout from "../../components/DashboardLayout";
+import Skeleton from "../../components/Skeleton";
 import { Field } from "../signup";
 
 const EMPTY_FORM = {
@@ -85,137 +88,191 @@ export default function LinkAccount() {
   return (
     <DashboardLayout>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Linked accounts</h1>
-        <button
+        <h1 className="font-display text-2xl font-semibold">Linked accounts</h1>
+        <motion.button
+          whileHover={{ y: -1 }}
+          whileTap={{ scale: 0.96 }}
           onClick={() => setShowForm((s) => !s)}
-          className="bg-mint text-base px-4 py-2 rounded-md text-sm font-medium hover:opacity-90"
+          className="flex items-center gap-1.5 bg-mint text-base px-4 py-2 rounded-md text-sm font-medium shadow-glow-mint"
         >
-          + Link new account
-        </button>
+          <Plus size={15} strokeWidth={2.5} />
+          Link new account
+        </motion.button>
       </div>
 
-      {showForm && (
-        <form onSubmit={onSubmit} className="bg-panel border border-line rounded-lg p-5 mb-6 space-y-4">
-          <p className="text-muted text-sm">
-            Enter your business name and where payments should settle. You'll get an API key
-            immediately, good for 25 free STK pushes — no charge to link.
-          </p>
-          <p className="text-muted text-xs bg-base border border-line rounded-md p-3">
-            <strong>Before your first live payment:</strong> log into the{" "}
-            <a
-              href="https://org.ke.m-pesa.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="text-mint underline"
-            >
-              M-Pesa Business Portal
-            </a>{" "}
-            for your till/paybill and add Sendit as an authorized API operator. Safaricom
-            won't route payments to your account otherwise.
-          </p>
-
-          <Field label="Business name" value={form.businessName} onChange={set("businessName")} required />
-
-          <div>
-            <span className="text-xs text-muted uppercase tracking-wide">Account type</span>
-            <div className="flex gap-2 mt-1">
-              <button
-                type="button"
-                onClick={() => set("accountType")("till")}
-                className={`px-3 py-2 rounded-md text-sm border ${
-                  form.accountType === "till" ? "bg-mint text-base border-mint" : "border-line text-muted"
-                }`}
-              >
-                Till
-              </button>
-              <button
-                type="button"
-                onClick={() => set("accountType")("paybill")}
-                className={`px-3 py-2 rounded-md text-sm border ${
-                  form.accountType === "paybill" ? "bg-mint text-base border-mint" : "border-line text-muted"
-                }`}
-              >
-                Paybill
-              </button>
-            </div>
-          </div>
-
-          {form.accountType === "till" ? (
-            <Field label="Till number" value={form.tillNumber} onChange={set("tillNumber")} required />
-          ) : (
-            <div className="grid md:grid-cols-2 gap-4">
-              <Field label="Paybill number" value={form.paybillNumber} onChange={set("paybillNumber")} required />
-              <Field
-                label="Account number"
-                value={form.paybillAccountNumber}
-                onChange={set("paybillAccountNumber")}
-                required
-              />
-            </div>
-          )}
-
-          {error && <div className="text-danger text-sm">{error}</div>}
-          <button
-            disabled={submitting}
-            className="bg-mint text-base px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50"
+      <AnimatePresence initial={false}>
+        {showForm && (
+          <motion.form
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            onSubmit={onSubmit}
+            className="overflow-hidden"
           >
-            {submitting ? "Linking account…" : "Link account"}
-          </button>
-        </form>
-      )}
+            <div className="glass rounded-lg p-5 mb-6 space-y-4 shadow-neo-sm">
+              <p className="text-muted text-sm">
+                Enter your business name and where payments should settle. You'll get an API key
+                immediately, good for 25 free STK pushes — no charge to link.
+              </p>
+              <p className="text-muted text-xs bg-base/60 border border-line rounded-md p-3 shadow-neo-inset">
+                <strong className="text-white">Before your first live payment:</strong> log into the{" "}
+                <a
+                  href="https://org.ke.m-pesa.com/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-mint underline"
+                >
+                  M-Pesa Business Portal
+                </a>{" "}
+                for your till/paybill and add Sendit as an authorized API operator. Safaricom
+                won't route payments to your account otherwise.
+              </p>
+
+              <Field label="Business name" value={form.businessName} onChange={set("businessName")} required />
+
+              <div>
+                <span className="text-xs text-muted uppercase tracking-wide">Account type</span>
+                <div className="flex gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => set("accountType")("till")}
+                    className={`px-3 py-2 rounded-md text-sm border transition-all ${
+                      form.accountType === "till"
+                        ? "bg-mint text-base border-mint shadow-glow-mint"
+                        : "border-line text-muted shadow-neo-sm"
+                    }`}
+                  >
+                    Till
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => set("accountType")("paybill")}
+                    className={`px-3 py-2 rounded-md text-sm border transition-all ${
+                      form.accountType === "paybill"
+                        ? "bg-mint text-base border-mint shadow-glow-mint"
+                        : "border-line text-muted shadow-neo-sm"
+                    }`}
+                  >
+                    Paybill
+                  </button>
+                </div>
+              </div>
+
+              {form.accountType === "till" ? (
+                <Field label="Till number" value={form.tillNumber} onChange={set("tillNumber")} required />
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Field label="Paybill number" value={form.paybillNumber} onChange={set("paybillNumber")} required />
+                  <Field
+                    label="Account number"
+                    value={form.paybillAccountNumber}
+                    onChange={set("paybillAccountNumber")}
+                    required
+                  />
+                </div>
+              )}
+
+              {error && <div className="text-danger text-sm">{error}</div>}
+              <motion.button
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                disabled={submitting}
+                className="bg-mint text-base px-4 py-2 rounded-md text-sm font-medium shadow-glow-mint disabled:opacity-50 disabled:shadow-none"
+              >
+                {submitting ? "Linking account…" : "Link account"}
+              </motion.button>
+            </div>
+          </motion.form>
+        )}
+      </AnimatePresence>
 
       <div className="space-y-4">
         {loadingAccounts && (
-          <p className="text-muted text-sm">Loading accounts…</p>
+          <div className="space-y-4">
+            <AccountCardSkeleton />
+            <AccountCardSkeleton />
+          </div>
         )}
         {!loadingAccounts && accounts.length === 0 && !showForm && (
           <p className="text-muted text-sm">No accounts linked yet.</p>
         )}
-        {accounts.map((a) => (
-          <div key={a.id} className="bg-panel border border-line rounded-lg p-5">
-            <div className="flex items-center justify-between">
-              <div className="font-semibold">{a.business_name}</div>
-              <UsagePill account={a} />
-            </div>
-            <div className="grid md:grid-cols-2 gap-4 mt-4 text-sm">
-              <Info label="Type" value={a.account_type === "paybill" ? "Paybill" : "Till number"} />
-              {a.account_type === "paybill" ? (
-                <>
-                  <Info label="Paybill number" value={a.paybill_number} mono />
-                  <Info label="Account number" value={a.paybill_account_number} mono />
-                </>
-              ) : (
-                <Info label="Till number" value={a.till_number} mono />
-              )}
-              <div>
-                <div className="text-muted text-xs uppercase tracking-wide">API key</div>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="font-mono text-xs bg-base border border-line rounded px-2 py-1">
-                    {reveal[a.id] ? a.api_key : maskKey(a.api_key)}
-                  </code>
-                  <button
-                    onClick={() => setReveal((r) => ({ ...r, [a.id]: !r[a.id] }))}
-                    className="text-xs text-muted hover:text-white"
-                  >
-                    {reveal[a.id] ? "Hide" : "Show"}
-                  </button>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(a.api_key)}
-                    className="text-xs text-mint"
-                  >
-                    Copy
-                  </button>
-                </div>
+        <AnimatePresence>
+          {accounts.map((a, i) => (
+            <motion.div
+              key={a.id}
+              layout
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+              transition={{ duration: 0.3, delay: i * 0.05, ease: "easeOut" }}
+              className="glass rounded-lg p-5 shadow-neo-sm"
+            >
+              <div className="flex items-center justify-between">
+                <div className="font-semibold">{a.business_name}</div>
+                <UsagePill account={a} />
               </div>
-              <Info label="API base URL" value="/api/v1/stkpush" mono />
-            </div>
-            <button onClick={() => onDelete(a.id)} className="text-danger text-xs mt-4 hover:underline">
-              Delete
-            </button>
-          </div>
-        ))}
+              <div className="grid md:grid-cols-2 gap-4 mt-4 text-sm">
+                <Info label="Type" value={a.account_type === "paybill" ? "Paybill" : "Till number"} />
+                {a.account_type === "paybill" ? (
+                  <>
+                    <Info label="Paybill number" value={a.paybill_number} mono />
+                    <Info label="Account number" value={a.paybill_account_number} mono />
+                  </>
+                ) : (
+                  <Info label="Till number" value={a.till_number} mono />
+                )}
+                <div>
+                  <div className="text-muted text-xs uppercase tracking-wide">API key</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="font-mono text-xs bg-base/60 border border-line rounded px-2 py-1 shadow-neo-inset">
+                      {reveal[a.id] ? a.api_key : maskKey(a.api_key)}
+                    </code>
+                    <button
+                      onClick={() => setReveal((r) => ({ ...r, [a.id]: !r[a.id] }))}
+                      className="text-muted hover:text-white p-1"
+                      aria-label={reveal[a.id] ? "Hide API key" : "Show API key"}
+                    >
+                      {reveal[a.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(a.api_key)}
+                      className="text-mint hover:opacity-80 p-1"
+                      aria-label="Copy API key"
+                    >
+                      <Copy size={14} />
+                    </button>
+                  </div>
+                </div>
+                <Info label="API base URL" value="/api/v1/stkpush" mono />
+              </div>
+              <button
+                onClick={() => onDelete(a.id)}
+                className="flex items-center gap-1.5 text-danger text-xs mt-4 hover:underline"
+              >
+                <Trash2 size={12} />
+                Delete
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </DashboardLayout>
+  );
+}
+
+function AccountCardSkeleton() {
+  return (
+    <div className="glass rounded-lg p-5 shadow-neo-sm">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-5 w-20 rounded-full" />
+      </div>
+      <div className="grid md:grid-cols-2 gap-4 mt-4">
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+    </div>
   );
 }
 
@@ -235,15 +292,15 @@ function Info({ label, value, mono }) {
 
 function UsagePill({ account }) {
   if (account.status === "payment_failed") {
-    return <span className="text-xs px-2 py-1 rounded-full text-danger bg-red-950">Payment failed</span>;
+    return <span className="text-xs px-2 py-1 rounded-full text-danger bg-dangerdim">Payment failed</span>;
   }
   if (account.status === "suspended") {
-    return <span className="text-xs px-2 py-1 rounded-full text-danger bg-red-950">Suspended</span>;
+    return <span className="text-xs px-2 py-1 rounded-full text-danger bg-dangerdim">Suspended</span>;
   }
   const used = account.free_tx_used ?? 0;
   const remaining = Math.max(0, 25 - used);
   if (remaining === 0) {
-    return <span className="text-xs px-2 py-1 rounded-full text-yellow-300 bg-yellow-950">Free tier used — pay KES 350</span>;
+    return <span className="text-xs px-2 py-1 rounded-full text-amber bg-amberdim">Free tier used — pay KES 350</span>;
   }
   return <span className="text-xs px-2 py-1 rounded-full text-mint bg-mintdim">{remaining} free left</span>;
 }
