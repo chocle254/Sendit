@@ -1,4 +1,4 @@
-import { getAccountByApiKey, createTransaction, incrementFreeUsage, evaluateAccountUsage } from "../../../lib/db";
+import { getAccountByApiKey, createTransaction, incrementFreeUsage, consumeTransactionToken, evaluateAccountUsage } from "../../../lib/db";
 import { stkPush, normalizePhone } from "../../../lib/daraja";
 
 export default async function handler(req, res) {
@@ -52,7 +52,13 @@ export default async function handler(req, res) {
       accountReference,
     });
 
-    await incrementFreeUsage(account.id);
+    // An active plan is unlimited (nothing to decrement); otherwise this
+    // transaction drew from the free tier or a purchased token.
+    if (usage.bucket === "free") {
+      await incrementFreeUsage(account.id);
+    } else if (usage.bucket === "token") {
+      await consumeTransactionToken(account.id);
+    }
 
     res.status(200).json({
       ResponseCode: "0",
