@@ -1,4 +1,5 @@
 import { parseStkCallback } from "../../../../lib/daraja";
+import { getSecurityCredential, b2cPayout, b2bPayout } from "../../../../lib/darajaPayout";
 import {
   getTransactionByCheckoutId,
   completeTransaction,
@@ -6,8 +7,74 @@ import {
   getAccountById,
   recordSuccess,
   recordFailure,
+  recordPayoutInitiated,
+  markPayoutFailedToStart,
 } from "../../../../lib/db";
 import crypto from "crypto";
+
+// Fires the payout leg (B2C to a phone, or B2B to a till/paybill) right after
+// a collection succeeds. Deducts Sendit's fee_bps first. Never throws —
+// a payout that fails to even start is recorded as payout_status='failed'
+// and left for manual/admin retry rather than blocking the STK response.
+async function triggerPayout({ account, txn }) {
+  const grossAmount = Number(txn.amount);
+  const feeAmount = Math.round((grossAmount * (account.fee_bps || 0)) / 100) / 100;
+  const netAmount = Math.round((grossAmount - feeAmount) * 100) / 100;
+
+  try {
+    const env = process.env.PLATFORM_ENV || "sandbox";
+    const securityCredential = getSecurityCredential({
+      initiatorPassword: process.env.PLATFORM_INITIATOR_PASSWORD,
+      certPath: process.env.PLATFORM_CERT_PATH,
+    });
+    const resultUrl = `${process.env.BASE_URL}/api/v1/payout-callback/${account.id}?token=${account.callback_token}`;
+    const timeoutUrl = resultUrl;
+
+    let payoutRes;
+    if (account.account_type === "phone") {
+      payoutRes = await b2cPayout({
+        env,
+        consumerKey: process.env.PLATFORM_CONSUMER_KEY,
+        consumerSecret: process.env.PLATFORM_CONSUMER_SECRET,
+        shortcode: process.env.PLATFORM_SHORTCODE,
+        initiatorName: process.env.PLATFORM_INITIATOR_NAME,
+        securityCredential,
+        amount: netAmount,
+        phone: account.payout_phone,
+        remarks: `Sendit payout ${txn.account_reference || ""}`.slice(0, 100),
+        resultUrl,
+        timeoutUrl,
+      });
+    } else {
+      const isPaybill = account.account_type === "paybill";
+      payoutRes = await b2bPayout({
+        env,
+        consumerKey: process.env.PLATFORM_CONSUMER_KEY,
+        consumerSecret: process.env.PLATFORM_CONSUMER_SECRET,
+        shortcode: process.env.PLATFORM_SHORTCODE,
+        initiatorName: process.env.PLATFORM_INITIATOR_NAME,
+        securityCredential,
+        amount: netAmount,
+        partyB: isPaybill ? account.paybill_number : account.till_number,
+        accountReference: account.paybill_account_number,
+        remarks: `Sendit payout ${txn.account_reference || ""}`.slice(0, 100),
+        resultUrl,
+        timeoutUrl,
+        isPaybill,
+      });
+    }
+
+    await recordPayoutInitiated({
+      transactionId: txn.id,
+      feeAmount,
+      netAmount,
+      payoutConversationId: payoutRes.ConversationID,
+    });
+  } catch (err) {
+    console.error("payout failed to start:", err);
+    await markPayoutFailedToStart({ transactionId: txn.id, resultDesc: err.message || "Payout failed to start." });
+  }
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
@@ -36,6 +103,10 @@ export default async function handler(req, res) {
 
     if (result.success) {
       await recordSuccess(account.id);
+      // Fire-and-forget from Safaricom's perspective, but awaited here so any
+      // failure-to-start is recorded before we return — the payout itself
+      // resolves later via the async payout-callback endpoint.
+      await triggerPayout({ account, txn: { ...txn, amount: txn.amount } });
     } else {
       await recordFailure(account.id, txn.id);
     }
