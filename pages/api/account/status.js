@@ -10,7 +10,14 @@ export default async function handler(req, res) {
     const { id } = req.query;
     const account = await getAccountById(id);
     if (!account || account.user_id !== userId) return res.status(404).json({ error: "Not found" });
-    res.status(200).json({ status: account.status, apiKey: account.api_key });
+    res.status(200).json({
+      status: account.status,
+      apiKey: account.api_key,
+      plan: account.plan,
+      planExpiresAt: account.plan_expires_at,
+      freeTxUsed: account.free_tx_used,
+      tokenBalance: account.token_balance,
+    });
   } catch (err) {
     console.error("account status check failed:", err);
     res.status(500).json({ error: "Could not check account status." });
