@@ -26,17 +26,17 @@ export default function DashboardOverview() {
   }, []);
 
   // "Active" means the account can transact right now — mirrors the same
-  // gating lib/db.js's evaluateAccountUsage() applies before an stkpush.
-  // There's no separate 'active' status in the lifecycle (only
-  // trial/payment_failed/suspended), so a trial account with free credits
-  // still remaining counts as active, not inactive.
+  // gating lib/db.js's evaluateAccountUsage() applies before an stkpush:
+  // blocked status, or (no active plan) AND (free tier used up) AND
+  // (no tokens left).
   const FREE_TX_LIMIT = 25;
-  const active = accounts.filter(
-    (a) =>
-      a.status !== "payment_failed" &&
-      a.status !== "suspended" &&
-      (a.free_tx_used ?? 0) < FREE_TX_LIMIT
-  ).length;
+  const active = accounts.filter((a) => {
+    if (a.status === "payment_failed" || a.status === "suspended") return false;
+    const planActive = a.plan_expires_at && new Date(a.plan_expires_at) > new Date();
+    if (planActive) return true;
+    if ((a.free_tx_used ?? 0) < FREE_TX_LIMIT) return true;
+    return (a.token_balance ?? 0) >= 1;
+  }).length;
 
   return (
     <DashboardLayout>
