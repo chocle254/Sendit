@@ -23,12 +23,13 @@ export default function Webhooks() {
     ])
       .then(([webhooksData, accountsData]) => {
         setWebhooks(webhooksData.webhooks || []);
-        const active = (accountsData.accounts || []).filter(
-          (a) =>
-            a.status !== "payment_failed" &&
-            a.status !== "suspended" &&
-            (a.free_tx_used ?? 0) < FREE_TX_LIMIT
-        );
+        const active = (accountsData.accounts || []).filter((a) => {
+          if (a.status === "payment_failed" || a.status === "suspended") return false;
+          const planActive = a.plan_expires_at && new Date(a.plan_expires_at) > new Date();
+          if (planActive) return true;
+          if ((a.free_tx_used ?? 0) < FREE_TX_LIMIT) return true;
+          return (a.token_balance ?? 0) >= 1;
+        });
         setAccounts(active);
         if (active[0]) setAccountId(active[0].id);
       })
