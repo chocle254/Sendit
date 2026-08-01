@@ -222,22 +222,22 @@ export default function LinkAccount() {
                 ) : (
                   <Info label="Till number" value={a.till_number} mono />
                 )}
-                <div>
+                <div className="min-w-0">
                   <div className="text-muted text-xs uppercase tracking-wide">API key</div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <code className="font-mono text-xs bg-base/60 border border-line rounded px-2 py-1 shadow-neo-inset">
+                  <div className="flex items-center gap-2 mt-1 min-w-0">
+                    <code className="font-mono text-xs bg-base/60 border border-line rounded px-2 py-1 shadow-neo-inset block max-w-[11rem] sm:max-w-[14rem] overflow-x-auto whitespace-nowrap">
                       {reveal[a.id] ? a.api_key : maskKey(a.api_key)}
                     </code>
                     <button
                       onClick={() => setReveal((r) => ({ ...r, [a.id]: !r[a.id] }))}
-                      className="text-muted hover:text-white p-1"
+                      className="text-muted hover:text-white p-1 shrink-0"
                       aria-label={reveal[a.id] ? "Hide API key" : "Show API key"}
                     >
                       {reveal[a.id] ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                     <button
                       onClick={() => navigator.clipboard.writeText(a.api_key)}
-                      className="text-mint hover:opacity-80 p-1"
+                      className="text-mint hover:opacity-80 p-1 shrink-0"
                       aria-label="Copy API key"
                     >
                       <Copy size={14} />
