@@ -8,10 +8,16 @@ export default async function handler(req, res) {
     const userId = getUserIdFromReq(req);
     if (!userId) return res.status(401).json({ error: "Not logged in" });
 
-    const { businessName, accountType, tillNumber, paybillNumber, paybillAccountNumber } = req.body || {};
+    const { businessName, accountType, payoutPhone, tillNumber, paybillNumber, paybillAccountNumber } = req.body || {};
 
     if (!businessName || !accountType) {
       return res.status(400).json({ error: "Business name and account type are required." });
+    }
+    if (!["phone", "till", "paybill"].includes(accountType)) {
+      return res.status(400).json({ error: "accountType must be 'phone', 'till', or 'paybill'." });
+    }
+    if (accountType === "phone" && !payoutPhone) {
+      return res.status(400).json({ error: "Payout phone number is required." });
     }
     if (accountType === "till" && !tillNumber) {
       return res.status(400).json({ error: "Till number is required." });
@@ -19,14 +25,12 @@ export default async function handler(req, res) {
     if (accountType === "paybill" && (!paybillNumber || !paybillAccountNumber)) {
       return res.status(400).json({ error: "Paybill number and account number are required." });
     }
-    if (accountType !== "till" && accountType !== "paybill") {
-      return res.status(400).json({ error: "accountType must be 'till' or 'paybill'." });
-    }
 
     const account = await createTrialAccount({
       userId,
       businessName,
       accountType,
+      payoutPhone: accountType === "phone" ? payoutPhone : null,
       tillNumber: accountType === "till" ? tillNumber : null,
       paybillNumber: accountType === "paybill" ? paybillNumber : null,
       paybillAccountNumber: accountType === "paybill" ? paybillAccountNumber : null,
