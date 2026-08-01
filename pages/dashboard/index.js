@@ -25,7 +25,18 @@ export default function DashboardOverview() {
       .finally(() => setLoadingAccounts(false));
   }, []);
 
-  const active = accounts.filter((a) => a.status === "active").length;
+  // "Active" means the account can transact right now — mirrors the same
+  // gating lib/db.js's evaluateAccountUsage() applies before an stkpush.
+  // There's no separate 'active' status in the lifecycle (only
+  // trial/payment_failed/suspended), so a trial account with free credits
+  // still remaining counts as active, not inactive.
+  const FREE_TX_LIMIT = 25;
+  const active = accounts.filter(
+    (a) =>
+      a.status !== "payment_failed" &&
+      a.status !== "suspended" &&
+      (a.free_tx_used ?? 0) < FREE_TX_LIMIT
+  ).length;
 
   return (
     <DashboardLayout>
