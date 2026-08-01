@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Field } from "./signup";
+import Logo from "../components/Logo";
 
 export default function Login() {
   const router = useRouter();
@@ -48,7 +49,7 @@ export default function Login() {
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="relative z-10 w-full max-w-sm glass rounded-xl shadow-glass p-7"
       >
-        <div className="font-mono text-mint font-semibold mb-8">stk://gateway</div>
+        <div className="mb-8"><Logo size={26} /></div>
         <h1 className="font-display text-2xl font-semibold mb-1">Log in</h1>
         <p className="text-muted text-sm mb-6">Welcome back.</p>
         <form onSubmit={onSubmit} className="space-y-4">
