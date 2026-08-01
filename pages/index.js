@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import Signal from "../components/Signal";
+import Logo from "../components/Logo";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -27,7 +28,7 @@ export default function Home() {
 
       <nav className="relative z-10 sticky top-0 bg-base/70 backdrop-blur-xl border-b border-line/60">
         <div className="flex items-center justify-between max-w-5xl mx-auto px-6 py-5">
-          <div className="font-mono text-mint font-semibold tracking-tight">stk://gateway</div>
+        <Logo size={22} />
           <div className="flex items-center gap-4 text-sm">
             <Link href="/login" className="text-muted hover:text-white transition-colors">Log in</Link>
             <Link
