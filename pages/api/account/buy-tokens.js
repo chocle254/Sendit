@@ -48,4 +48,4 @@ export default async function handler(req, res) {
     console.error("buy tokens failed:", err);
     res.status(502).json({ error: err.message || "Could not start the token purchase. Please try again." });
   }
-}c
+}
