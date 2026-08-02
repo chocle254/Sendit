@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     const userId = getUserIdFromReq(req);
     if (!userId) return res.status(401).json({ error: "Not logged in" });
 
-    const { businessName, accountType, payoutPhone, tillNumber, paybillNumber, paybillAccountNumber } = req.body || {};
+    const { businessName, accountType, payoutPhone, tillNumber, paybillNumber, paybillAccountNumber, detailsConfirmed } = req.body || {};
 
     if (!businessName || !accountType) {
       return res.status(400).json({ error: "Business name and account type are required." });
@@ -25,6 +25,13 @@ export default async function handler(req, res) {
     if (accountType === "paybill" && (!paybillNumber || !paybillAccountNumber)) {
       return res.status(400).json({ error: "Paybill number and account number are required." });
     }
+    // Client-side confirmation is a UX nudge; this check is what actually
+    // matters. Sendit cannot issue refunds for payments sent to a wrong
+    // till/paybill/account number a developer entered themselves, so we
+    // require — and record — an explicit acknowledgment before linking.
+    if (detailsConfirmed !== true) {
+      return res.status(400).json({ error: "You must confirm these details are correct before linking." });
+    }
 
     const account = await createTrialAccount({
       userId,
@@ -34,6 +41,7 @@ export default async function handler(req, res) {
       tillNumber: accountType === "till" ? tillNumber : null,
       paybillNumber: accountType === "paybill" ? paybillNumber : null,
       paybillAccountNumber: accountType === "paybill" ? paybillAccountNumber : null,
+      detailsConfirmed: true,
     });
 
     const gotFreeTier = (account.free_tx_used ?? 0) === 0;
