@@ -27,6 +27,8 @@ export default function LinkAccount() {
   const [accounts, setAccounts] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [reviewing, setReviewing] = useState(false); // true once fields are filled and user hits "Review details"
+  const [detailsConfirmed, setDetailsConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // setActivating(true) is async — a fast double-click can fire this
   // handler twice before React re-renders the disabled button, which for
@@ -83,15 +85,27 @@ export default function LinkAccount() {
     return (value) => setForm((f) => ({ ...f, [key]: value }));
   }
 
+  function backToEdit() {
+    setReviewing(false);
+    setDetailsConfirmed(false);
+  }
+
+  function onReview(e) {
+    e.preventDefault();
+    setError("");
+    setReviewing(true);
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
+    if (!detailsConfirmed) return; // button is disabled for this too, but guard the direct call as well
     setError("");
     setSubmitting(true);
     try {
       const res = await fetch("/api/account/link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, detailsConfirmed: true }),
       });
       let data = {};
       try {
@@ -105,6 +119,8 @@ export default function LinkAccount() {
       }
       setForm(EMPTY_FORM);
       setShowForm(false);
+      setReviewing(false);
+      setDetailsConfirmed(false);
       await loadAccounts();
     } catch (err) {
       setError("Couldn't reach the server. Check your connection and try again.");
@@ -271,7 +287,13 @@ export default function LinkAccount() {
         <motion.button
           whileHover={{ y: -1 }}
           whileTap={{ scale: 0.96 }}
-          onClick={() => setShowForm((s) => !s)}
+          onClick={() => {
+            setShowForm((s) => !s);
+            setReviewing(false);
+            setDetailsConfirmed(false);
+            setForm(EMPTY_FORM);
+            setError("");
+          }}
           className="flex items-center gap-1.5 bg-mint text-base px-4 py-2 rounded-md text-sm font-medium shadow-glow-mint"
         >
           <Plus size={15} strokeWidth={2.5} />
@@ -281,89 +303,152 @@ export default function LinkAccount() {
 
       <AnimatePresence initial={false}>
         {showForm && (
-          <motion.form
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            onSubmit={onSubmit}
             className="overflow-hidden"
           >
             <div className="glass rounded-lg p-5 mb-6 space-y-4 shadow-neo-sm">
-              <p className="text-muted text-sm">
-                Enter your business name and where payments should settle. You'll get an API key
-                immediately. Your first linked account gets 5 free STK pushes, no charge to link —
-                accounts after that need a subscription or purchased tokens right away.
-              </p>
-              <p className="text-muted text-xs bg-base/60 border border-line rounded-md p-3 shadow-neo-inset">
-                <strong className="text-white">Before your first live payment:</strong> log into the{" "}
-                <a
-                  href="https://org.ke.m-pesa.com/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-mint underline"
-                >
-                  M-Pesa Business Portal
-                </a>{" "}
-                for your till/paybill and add Sendit as an authorized API operator. Safaricom
-                won't route payments to your account otherwise.
-              </p>
+              {!reviewing ? (
+                <>
+                  <p className="text-muted text-sm">
+                    Enter your business name and where payments should settle. You'll get an API key
+                    immediately. Your first linked account gets 5 free STK pushes, no charge to link —
+                    accounts after that need a subscription or purchased tokens right away.
+                  </p>
+                  <p className="text-muted text-xs bg-base/60 border border-line rounded-md p-3 shadow-neo-inset">
+                    <strong className="text-white">Before your first live payment:</strong> log into the{" "}
+                    <a
+                      href="https://org.ke.m-pesa.com/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-mint underline"
+                    >
+                      M-Pesa Business Portal
+                    </a>{" "}
+                    for your till/paybill and add Sendit as an authorized API operator. Safaricom
+                    won't route payments to your account otherwise.
+                  </p>
 
-              <Field label="Business name" value={form.businessName} onChange={set("businessName")} required />
+                  <Field label="Business name" value={form.businessName} onChange={set("businessName")} required />
 
-              <div>
-                <span className="text-xs text-muted uppercase tracking-wide">Account type</span>
-                <div className="flex gap-2 mt-1">
-                  <button
+                  <div>
+                    <span className="text-xs text-muted uppercase tracking-wide">Account type</span>
+                    <div className="flex gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => set("accountType")("till")}
+                        className={`px-3 py-2 rounded-md text-sm border transition-all ${
+                          form.accountType === "till"
+                            ? "bg-mint text-base border-mint shadow-glow-mint"
+                            : "border-line text-muted shadow-neo-sm"
+                        }`}
+                      >
+                        Till
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => set("accountType")("paybill")}
+                        className={`px-3 py-2 rounded-md text-sm border transition-all ${
+                          form.accountType === "paybill"
+                            ? "bg-mint text-base border-mint shadow-glow-mint"
+                            : "border-line text-muted shadow-neo-sm"
+                        }`}
+                      >
+                        Paybill
+                      </button>
+                    </div>
+                  </div>
+
+                  {form.accountType === "till" ? (
+                    <Field label="Till number" value={form.tillNumber} onChange={set("tillNumber")} required />
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <Field label="Paybill number" value={form.paybillNumber} onChange={set("paybillNumber")} required />
+                      <Field
+                        label="Account number"
+                        value={form.paybillAccountNumber}
+                        onChange={set("paybillAccountNumber")}
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {error && <div className="text-danger text-sm">{error}</div>}
+                  <motion.button
                     type="button"
-                    onClick={() => set("accountType")("till")}
-                    className={`px-3 py-2 rounded-md text-sm border transition-all ${
-                      form.accountType === "till"
-                        ? "bg-mint text-base border-mint shadow-glow-mint"
-                        : "border-line text-muted shadow-neo-sm"
-                    }`}
+                    onClick={onReview}
+                    disabled={
+                      !form.businessName ||
+                      (form.accountType === "till" && !form.tillNumber) ||
+                      (form.accountType === "paybill" && (!form.paybillNumber || !form.paybillAccountNumber))
+                    }
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="bg-mint text-base px-4 py-2 rounded-md text-sm font-medium shadow-glow-mint disabled:opacity-50 disabled:shadow-none"
                   >
-                    Till
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => set("accountType")("paybill")}
-                    className={`px-3 py-2 rounded-md text-sm border transition-all ${
-                      form.accountType === "paybill"
-                        ? "bg-mint text-base border-mint shadow-glow-mint"
-                        : "border-line text-muted shadow-neo-sm"
-                    }`}
-                  >
-                    Paybill
-                  </button>
-                </div>
-              </div>
-
-              {form.accountType === "till" ? (
-                <Field label="Till number" value={form.tillNumber} onChange={set("tillNumber")} required />
+                    Review details
+                  </motion.button>
+                </>
               ) : (
-                <div className="grid md:grid-cols-2 gap-4">
-                  <Field label="Paybill number" value={form.paybillNumber} onChange={set("paybillNumber")} required />
-                  <Field
-                    label="Account number"
-                    value={form.paybillAccountNumber}
-                    onChange={set("paybillAccountNumber")}
-                    required
-                  />
-                </div>
-              )}
+                <form onSubmit={onSubmit} className="space-y-4">
+                  <p className="text-muted text-sm">
+                    Double-check every field below. <strong className="text-white">Sendit cannot reverse
+                    or refund a payment sent to the wrong till, paybill, or account number</strong> —
+                    once it's linked, real customer money can flow to exactly what's shown here.
+                  </p>
 
-              {error && <div className="text-danger text-sm">{error}</div>}
-              <motion.button
-                whileHover={{ y: -1 }}
-                whileTap={{ scale: 0.98 }}
-                disabled={submitting}
-                className="bg-mint text-base px-4 py-2 rounded-md text-sm font-medium shadow-glow-mint disabled:opacity-50 disabled:shadow-none"
-              >
-                {submitting ? "Linking account…" : "Link account"}
-              </motion.button>
+                  <div className="bg-base/60 border border-line rounded-md p-4 shadow-neo-inset space-y-3">
+                    <Info label="Business name" value={form.businessName} />
+                    <Info label="Account type" value={form.accountType === "paybill" ? "Paybill" : "Till"} />
+                    {form.accountType === "till" ? (
+                      <Info label="Till number" value={form.tillNumber} mono />
+                    ) : (
+                      <>
+                        <Info label="Paybill number" value={form.paybillNumber} mono />
+                        <Info label="Account number" value={form.paybillAccountNumber} mono />
+                      </>
+                    )}
+                  </div>
+
+                  <label className="flex items-start gap-2.5 text-sm text-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={detailsConfirmed}
+                      onChange={(e) => setDetailsConfirmed(e.target.checked)}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <span>
+                      I confirm these details are correct. Sendit cannot reverse or refund payments sent
+                      to the wrong account.
+                    </span>
+                  </label>
+
+                  {error && <div className="text-danger text-sm">{error}</div>}
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={backToEdit}
+                      className="px-4 py-2 rounded-md text-sm font-medium border border-line text-muted hover:text-white"
+                    >
+                      Back and edit
+                    </button>
+                    <motion.button
+                      whileHover={detailsConfirmed ? { y: -1 } : {}}
+                      whileTap={detailsConfirmed ? { scale: 0.98 } : {}}
+                      disabled={!detailsConfirmed || submitting}
+                      className="bg-mint text-base px-4 py-2 rounded-md text-sm font-medium shadow-glow-mint disabled:opacity-50 disabled:shadow-none"
+                    >
+                      {submitting ? "Linking account…" : "Confirm and link"}
+                    </motion.button>
+                  </div>
+                </form>
+              )}
             </div>
-          </motion.form>
+          </motion.div>
         )}
       </AnimatePresence>
 
