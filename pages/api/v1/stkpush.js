@@ -5,7 +5,7 @@ import { stkPush, normalizePhone } from "../../../lib/daraja";
 // this endpoint matters even more — it's the one every downstream app
 // (like camp) calls for real customer payments, so a dropped connection
 // here risks a contributor being double-charged if the caller retries.
-export const config = { maxDuration: 30 };
+export const maxDuration = 30;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
