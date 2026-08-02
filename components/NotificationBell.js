@@ -57,16 +57,16 @@ export default function NotificationBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-2 w-72 max-h-80 overflow-y-auto glass rounded-lg shadow-glass p-2 z-50"
+            className="absolute right-0 mt-2 w-72 max-h-80 overflow-y-auto glass-strong rounded-lg shadow-glass p-2 z-50"
           >
             {notifications.length === 0 ? (
               <div className="text-muted text-xs p-3 text-center">No notifications yet.</div>
             ) : (
               notifications.map((n) => (
-                <div key={n.id} className="p-2.5 rounded-md hover:bg-panel2/60">
-                  <div className="text-xs font-medium">{n.title}</div>
+                <div key={n.id} className="p-2.5 rounded-md hover:bg-panel2/80 border-b border-line/40 last:border-b-0">
+                  <div className="text-xs font-medium text-white">{n.title}</div>
                   {n.body && <div className="text-xs text-muted mt-0.5">{n.body}</div>}
-                  <div className="text-[10px] text-muted mt-1">{new Date(n.created_at).toLocaleString()}</div>
+                  <div className="text-[10px] text-muted/80 mt-1">{new Date(n.created_at).toLocaleString()}</div>
                 </div>
               ))
             )}
