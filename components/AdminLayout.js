@@ -83,7 +83,7 @@ export default function AdminLayout({ children, admin }) {
         </button>
       </div>
 
-      <main className="flex-1 px-6 py-8 pt-20 pb-8 md:pt-8 max-w-5xl w-full mx-auto md:mx-0">
+      <main className="flex-1 px-6 py-8 pt-20 pb-24 md:pt-8 md:pb-8 max-w-5xl w-full mx-auto md:mx-0">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -92,6 +92,34 @@ export default function AdminLayout({ children, admin }) {
           {children}
         </motion.div>
       </main>
+
+      {/* Mobile bottom nav — was missing entirely, so Accounts was
+          unreachable on mobile; mirrors DashboardLayout's pattern. */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-panel/80 backdrop-blur-xl border-t border-line/60 px-2 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-stretch justify-around">
+          {NAV.map((item) => {
+            const active = item.href === "/admin" ? router.pathname === "/admin" : router.pathname.startsWith(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="relative flex flex-col items-center gap-1 py-2.5 px-2 flex-1 text-[11px]"
+              >
+                {active && (
+                  <motion.span
+                    layoutId="admin-nav-active-pill-mobile"
+                    className="absolute top-1 h-8 w-8 rounded-full bg-panel2 shadow-neo-sm"
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                  />
+                )}
+                <Icon size={18} strokeWidth={2} className={`relative z-10 ${active ? "text-mint" : "text-muted"}`} />
+                <span className={`relative z-10 ${active ? "text-white" : "text-muted"}`}>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }
