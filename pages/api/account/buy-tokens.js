@@ -1,9 +1,9 @@
 import { getUserIdFromReq } from "../../../lib/auth";
-import { getAccountById, createTransaction } from "../../../lib/db";
+import { getAccountById, createTransaction, MIN_TOKENS_PURCHASE } from "../../../lib/db";
 import { stkPush } from "../../../lib/daraja";
 
 // 1 token = 1 KES = 1 extra transaction once the free tier is used up
-// (also doubles as the parole penalty buffer). Minimum 25.
+// (also doubles as the parole penalty buffer). Minimum MIN_TOKENS_PURCHASE.
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -13,8 +13,8 @@ export default async function handler(req, res) {
 
     const { accountId, phone, tokens } = req.body || {};
     const amount = Number(tokens);
-    if (!accountId || !phone || !amount || amount < 25) {
-      return res.status(400).json({ error: "accountId, phone and tokens (min 25) are required." });
+    if (!accountId || !phone || !amount || amount < MIN_TOKENS_PURCHASE) {
+      return res.status(400).json({ error: `accountId, phone and tokens (min ${MIN_TOKENS_PURCHASE}) are required.` });
     }
 
     const account = await getAccountById(accountId);
@@ -48,4 +48,4 @@ export default async function handler(req, res) {
     console.error("buy tokens failed:", err);
     res.status(502).json({ error: err.message || "Could not start the token purchase. Please try again." });
   }
-}
+}c
