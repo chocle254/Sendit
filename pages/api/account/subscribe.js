@@ -2,6 +2,11 @@ import { getUserIdFromReq } from "../../../lib/auth";
 import { getAccountById, createTransaction, PLAN_PRICES_KES } from "../../../lib/db";
 import { stkPush } from "../../../lib/daraja";
 
+// See buy-tokens.js for why this matters: two sequential external calls to
+// Safaricom can exceed Vercel's default timeout and drop the connection
+// after the charge already succeeded server-side.
+export const config = { maxDuration: 30 };
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
