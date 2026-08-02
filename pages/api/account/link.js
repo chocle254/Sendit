@@ -1,5 +1,5 @@
 import { getUserIdFromReq } from "../../../lib/auth";
-import { createTrialAccount } from "../../../lib/db";
+import { createTrialAccount, FREE_TX_LIMIT } from "../../../lib/db";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -36,9 +36,12 @@ export default async function handler(req, res) {
       paybillAccountNumber: accountType === "paybill" ? paybillAccountNumber : null,
     });
 
+    const gotFreeTier = (account.free_tx_used ?? 0) === 0;
     res.status(200).json({
       account,
-      message: "Account linked. You have 25 free transactions before you'll need to pay KES 350 to reset.",
+      message: gotFreeTier
+        ? `Account linked. You have ${FREE_TX_LIMIT} free transactions, then you'll need to subscribe or buy tokens.`
+        : "Account linked. Your free tier was already used on an earlier account, so this account needs a subscription or purchased tokens before it can send STK pushes.",
     });
   } catch (err) {
     console.error("link account failed:", err);
