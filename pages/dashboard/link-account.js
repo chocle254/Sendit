@@ -43,9 +43,19 @@ export default function LinkAccount() {
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState("");
   const [activateMessage, setActivateMessage] = useState("");
+  // The STK request itself resolves in a second or two, but the actual
+  // charge is only confirmed later via pollForActivation (up to ~40s).
+  // activatingRef alone only blocks double-clicks during that first second —
+  // it's cleared right after the push is sent. Without a separate flag
+  // covering the polling window too, the button re-enables while a prompt
+  // is still awaiting a PIN on the phone, and a second tap fires a second
+  // real STK push/charge. This flag keeps the button disabled for the
+  // whole window, not just the initial request.
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [pollSecondsLeft, setPollSecondsLeft] = useState(0);
 
-  async function loadAccounts() {
-    setLoadingAccounts(true);
+  async function loadAccounts(showSkeleton = true) {
+    if (showSkeleton) setLoadingAccounts(true);
     try {
       const res = await fetch("/api/account/list");
       const data = await res.json();
@@ -59,6 +69,14 @@ export default function LinkAccount() {
 
   useEffect(() => {
     loadAccounts();
+    // Background refresh so token/plan changes made from another tab, or
+    // confirmed slightly late by Safaricom's callback, still show up here
+    // without a manual page refresh. The in-panel pollForActivation already
+    // covers the active purchase flow closely; this is the general safety
+    // net for everything else (e.g. free_tx_used ticking up from live API
+    // calls elsewhere).
+    const interval = setInterval(() => loadAccounts(false), 8000);
+    return () => clearInterval(interval);
   }, []);
 
   function set(key) {
@@ -114,14 +132,19 @@ export default function LinkAccount() {
     setTokenAmount("10");
     setActivateError("");
     setActivateMessage("");
+    setAwaitingConfirmation(false);
+    setPollSecondsLeft(0);
   }
 
   async function submitActivate(e, accountId) {
     e.preventDefault();
-    if (activatingRef.current) return; // already in flight — ignore the duplicate click
+    // Guard covers both the initial request AND the confirmation-polling
+    // window that follows it — see awaitingConfirmation above.
+    if (activatingRef.current || awaitingConfirmation) return;
     activatingRef.current = true;
     setActivateError("");
     setActivating(true);
+    setAwaitingConfirmation(true);
     const mode = activateMode; // snapshot — activateMode can change while the STK prompt is out
     try {
       const endpoint = mode === "tokens" ? "/api/account/buy-tokens" : "/api/account/subscribe";
@@ -145,12 +168,16 @@ export default function LinkAccount() {
       }
       if (!res.ok) {
         setActivateError(data.error || `Request failed (${res.status}). Please try again.`);
+        setAwaitingConfirmation(false); // request itself failed — nothing to poll for, safe to retry immediately
         return;
       }
       setActivateMessage("STK prompt sent — enter your PIN on your phone.");
       pollForActivation(accountId, mode, data.CheckoutRequestID);
+      // NOTE: awaitingConfirmation stays true here — pollForActivation clears
+      // it on every one of its own exit paths once the charge is resolved.
     } catch {
       setActivateError("Couldn't reach the server. Check your connection and try again.");
+      setAwaitingConfirmation(false); // never reached Safaricom — safe to retry immediately
     } finally {
       setActivating(false);
       activatingRef.current = false;
@@ -168,9 +195,12 @@ export default function LinkAccount() {
   function pollForActivation(accountId, mode, checkoutRequestId) {
     let attempts = 0;
     const statusEndpoint = mode === "tokens" ? "/api/account/token-purchase-transaction-status" : "/api/account/subscription-transaction-status";
+    const MAX_ATTEMPTS = 13;
+    setPollSecondsLeft(MAX_ATTEMPTS * 3);
 
     const interval = setInterval(async () => {
       attempts += 1;
+      setPollSecondsLeft(Math.max(0, (MAX_ATTEMPTS - attempts) * 3));
       try {
         const res = await fetch(`/api/account/status?id=${accountId}`);
         const data = await res.json();
@@ -190,6 +220,7 @@ export default function LinkAccount() {
           const qData = await qRes.json();
           if (qData.status === "success") {
             clearInterval(interval);
+            setAwaitingConfirmation(false);
             const statusRes = await fetch(`/api/account/status?id=${accountId}`);
             const statusData = await statusRes.json();
             setActivateMessage(
@@ -208,12 +239,14 @@ export default function LinkAccount() {
           }
           if (qData.status === "cancelled") {
             clearInterval(interval);
+            setAwaitingConfirmation(false);
             setActivateMessage("");
             setActivateError(`Payment cancelled${qData.resultDesc ? ` — ${qData.resultDesc}` : ""}.`);
             return;
           }
           if (qData.status === "failed") {
             clearInterval(interval);
+            setAwaitingConfirmation(false);
             setActivateMessage("");
             setActivateError(`Payment failed${qData.resultDesc ? ` — ${qData.resultDesc}` : ""}.`);
             return;
@@ -222,8 +255,9 @@ export default function LinkAccount() {
       } catch {
         // Ignore transient polling errors — the interval just retries.
       }
-      if (attempts >= 13) {
+      if (attempts >= MAX_ATTEMPTS) {
         clearInterval(interval);
+        setAwaitingConfirmation(false);
         setActivateMessage("");
         setActivateError("Still waiting for confirmation from M-Pesa. Check the Transactions page in a moment, or try again.");
       }
@@ -450,12 +484,19 @@ export default function LinkAccount() {
 
                       {activateError && <div className="text-danger text-sm">{activateError}</div>}
                       {activateMessage && <div className="text-mint text-sm">{activateMessage}</div>}
+                      {awaitingConfirmation && !activateError && (
+                        <div className="text-muted text-xs">
+                          Waiting for you to enter your PIN — this button unlocks once the payment is
+                          confirmed{pollSecondsLeft > 0 ? ` (up to ${pollSecondsLeft}s)` : ""}. Only one
+                          prompt is sent per attempt, so there's no need to tap again.
+                        </div>
+                      )}
 
                       <button
-                        disabled={activating}
+                        disabled={activating || awaitingConfirmation}
                         className="bg-mint text-base px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50"
                       >
-                        {activating ? "Sending prompt…" : "Send STK prompt"}
+                        {activating ? "Sending prompt…" : awaitingConfirmation ? "Awaiting confirmation…" : "Send STK prompt"}
                       </button>
                     </div>
                   </motion.form>
