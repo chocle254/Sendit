@@ -1,6 +1,12 @@
 import { getAccountByApiKey, createTransaction, incrementFreeUsage, consumeTransactionToken, evaluateAccountUsage } from "../../../lib/db";
 import { stkPush, normalizePhone } from "../../../lib/daraja";
 
+// Same timeout issue as buy-tokens.js / subscribe.js / activate.js, but
+// this endpoint matters even more — it's the one every downstream app
+// (like camp) calls for real customer payments, so a dropped connection
+// here risks a contributor being double-charged if the caller retries.
+export const config = { maxDuration: 30 };
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
