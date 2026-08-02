@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { TrendingUp, Users, Coins, Calendar, Wallet, Activity } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
+import LiveLineChart, { THEME } from "../../components/LiveLineChart";
 
 function formatKes(n) {
   return "KES " + Number(n || 0).toLocaleString("en-KE", { maximumFractionDigits: 0 });
@@ -11,13 +12,28 @@ export default function AdminOverview() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/admin/overview")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) setError(d.error);
-        else setStats(d);
-      })
-      .catch(() => setError("Couldn't reach the server. Check your connection and try again."));
+    let cancelled = false;
+    function load() {
+      fetch("/api/admin/overview")
+        .then((r) => r.json())
+        .then((d) => {
+          if (cancelled) return;
+          if (d.error) setError(d.error);
+          else {
+            setError("");
+            setStats(d);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setError("Couldn't reach the server. Check your connection and try again.");
+        });
+    }
+    load();
+    const interval = setInterval(load, 5000); // top stat cards stay live too, same reasoning as the charts below
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -55,10 +71,28 @@ export default function AdminOverview() {
             />
           </div>
 
-          <div className="glass rounded-xl shadow-neo-sm p-5 mb-6">
-            <h2 className="font-medium mb-4">Money moved across tills — last 14 days</h2>
-            <DailyBarChart series={stats.dailySeries} />
-          </div>
+          <LiveLineChart
+            title="Revenue — tokens, subscriptions & parole tokens"
+            fetchUrl={(granularity) => `/api/admin/revenue-series?granularity=${granularity}`}
+            lines={[
+              { dataKey: "tokenRevenue", label: "Tokens", color: THEME.mint },
+              { dataKey: "subscriptionRevenue", label: "Subscriptions", color: THEME.blue },
+              { dataKey: "paroleTokenRevenue", label: "Parole tokens", color: THEME.amber },
+              { dataKey: "totalRevenue", label: "Total", color: THEME.danger },
+            ]}
+            emptyLabel="No revenue in this window yet."
+          />
+
+          <div className="h-6" />
+
+          <LiveLineChart
+            title="Money pushed through developers' STK pushes"
+            fetchUrl={(granularity) => `/api/admin/revenue-series?granularity=${granularity}`}
+            lines={[{ dataKey: "moneyPushed", label: "Money pushed", color: THEME.mint }]}
+            emptyLabel="No STK push activity in this window yet."
+          />
+
+          <div className="h-6" />
 
           <div className="glass rounded-xl shadow-neo-sm p-5">
             <h2 className="font-medium mb-4">Revenue mix</h2>
@@ -84,57 +118,6 @@ function StatCard({ icon: Icon, label, value, sub, small }) {
       <div className={small ? "text-lg font-semibold" : "text-2xl font-semibold font-display"}>{value}</div>
       {sub && <div className="text-muted text-xs mt-1">{sub}</div>}
     </div>
-  );
-}
-
-// Dependency-free SVG bar chart — no chart library in package.json, and a
-// 14-point daily series doesn't need one.
-function DailyBarChart({ series }) {
-  if (!series || series.length === 0) {
-    return <div className="text-muted text-sm">No transaction activity in the last 14 days.</div>;
-  }
-
-  const width = 700;
-  const height = 220;
-  const padding = 30;
-  const max = Math.max(...series.map((d) => d.moneyMoved), 1);
-  const barWidth = (width - padding * 2) / series.length;
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" role="img" aria-label="Daily money moved, last 14 days">
-      {series.map((d, i) => {
-        const barHeight = (d.moneyMoved / max) * (height - padding * 2);
-        const x = padding + i * barWidth;
-        const y = height - padding - barHeight;
-        return (
-          <g key={d.day}>
-            <rect
-              x={x + barWidth * 0.15}
-              y={y}
-              width={barWidth * 0.7}
-              height={Math.max(barHeight, 1)}
-              rx={3}
-              fill="var(--mint, #34d399)"
-              opacity={0.85}
-            >
-              <title>
-                {d.day}: {formatKes(d.moneyMoved)}
-              </title>
-            </rect>
-            <text
-              x={x + barWidth / 2}
-              y={height - padding + 14}
-              textAnchor="middle"
-              fontSize="9"
-              fill="currentColor"
-              opacity={0.5}
-            >
-              {d.day.slice(5)}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
   );
 }
 
