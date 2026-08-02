@@ -5,7 +5,7 @@ import DashboardLayout from "../../components/DashboardLayout";
 import Skeleton from "../../components/Skeleton";
 import { Field } from "../signup";
 
-const PLAN_PRICE = { monthly: 500, yearly: 5000 };
+const PLAN_PRICE = { monthly: 300, yearly: 1500 };
 
 const EMPTY_FORM = {
   businessName: "",
@@ -107,25 +107,33 @@ export default function LinkAccount() {
     e.preventDefault();
     setActivateError("");
     setActivating(true);
+    const mode = activateMode; // snapshot — activateMode can change while the STK prompt is out
     try {
-      const endpoint = activateMode === "tokens" ? "/api/account/buy-tokens" : "/api/account/subscribe";
+      const endpoint = mode === "tokens" ? "/api/account/buy-tokens" : "/api/account/subscribe";
       const body =
-        activateMode === "tokens"
+        mode === "tokens"
           ? { accountId, phone: activatePhone, tokens: Number(tokenAmount) }
-          : { accountId, phone: activatePhone, plan: activateMode };
+          : { accountId, phone: activatePhone, plan: mode };
 
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        // Non-JSON response (infra-level error, e.g. a function timeout page) —
+        // fall through to the generic message below instead of misreporting
+        // this as "couldn't reach the server".
+      }
       if (!res.ok) {
-        setActivateError(data.error || "Something went wrong.");
+        setActivateError(data.error || `Request failed (${res.status}). Please try again.`);
         return;
       }
       setActivateMessage("STK prompt sent — enter your PIN on your phone.");
-      pollForActivation(accountId);
+      pollForActivation(accountId, mode, data.CheckoutRequestID);
     } catch {
       setActivateError("Couldn't reach the server. Check your connection and try again.");
     } finally {
@@ -135,9 +143,16 @@ export default function LinkAccount() {
 
   // Polls the account status for up to ~40s after a subscribe/token STK
   // push, since the callback that actually applies the plan/tokens lands
-  // asynchronously once the customer enters their PIN.
-  function pollForActivation(accountId) {
+  // asynchronously once the customer enters their PIN. Purely watching the
+  // DB (via /api/account/status) silently does nothing if Safaricom's
+  // callback is delayed, dropped, or blocked — so from the 3rd attempt
+  // onward this also asks Safaricom directly via the transaction-status
+  // fallback endpoints, and always ends with an explicit message instead of
+  // just quietly stopping.
+  function pollForActivation(accountId, mode, checkoutRequestId) {
     let attempts = 0;
+    const statusEndpoint = mode === "tokens" ? "/api/account/token-purchase-transaction-status" : "/api/account/subscription-transaction-status";
+
     const interval = setInterval(async () => {
       attempts += 1;
       try {
@@ -150,10 +165,48 @@ export default function LinkAccount() {
               : a
           )
         );
+
+        // From the 3rd attempt (~9s in), also ask Safaricom directly — the
+        // account's own numbers might not have moved yet only because the
+        // webhook callback hasn't landed, not because nothing happened.
+        if (attempts >= 3 && checkoutRequestId) {
+          const qRes = await fetch(`${statusEndpoint}?checkoutRequestId=${checkoutRequestId}`);
+          const qData = await qRes.json();
+          if (qData.status === "success") {
+            clearInterval(interval);
+            setActivateMessage(mode === "tokens" ? "Tokens added to your balance." : "Subscription activated.");
+            const statusRes = await fetch(`/api/account/status?id=${accountId}`);
+            const statusData = await statusRes.json();
+            setAccounts((prev) =>
+              prev.map((a) =>
+                a.id === accountId
+                  ? { ...a, plan: statusData.plan, plan_expires_at: statusData.planExpiresAt, free_tx_used: statusData.freeTxUsed, token_balance: statusData.tokenBalance }
+                  : a
+              )
+            );
+            return;
+          }
+          if (qData.status === "cancelled") {
+            clearInterval(interval);
+            setActivateMessage("");
+            setActivateError(`Payment cancelled${qData.resultDesc ? ` — ${qData.resultDesc}` : ""}.`);
+            return;
+          }
+          if (qData.status === "failed") {
+            clearInterval(interval);
+            setActivateMessage("");
+            setActivateError(`Payment failed${qData.resultDesc ? ` — ${qData.resultDesc}` : ""}.`);
+            return;
+          }
+        }
       } catch {
         // Ignore transient polling errors — the interval just retries.
       }
-      if (attempts >= 13) clearInterval(interval); // ~40s at 3s intervals
+      if (attempts >= 13) {
+        clearInterval(interval);
+        setActivateMessage("");
+        setActivateError("Still waiting for confirmation from M-Pesa. Check the Transactions page in a moment, or try again.");
+      }
     }, 3000);
   }
 
@@ -185,7 +238,8 @@ export default function LinkAccount() {
             <div className="glass rounded-lg p-5 mb-6 space-y-4 shadow-neo-sm">
               <p className="text-muted text-sm">
                 Enter your business name and where payments should settle. You'll get an API key
-                immediately, good for 25 free STK pushes — no charge to link.
+                immediately. Your first linked account gets 5 free STK pushes, no charge to link —
+                accounts after that need a subscription or purchased tokens right away.
               </p>
               <p className="text-muted text-xs bg-base/60 border border-line rounded-md p-3 shadow-neo-inset">
                 <strong className="text-white">Before your first live payment:</strong> log into the{" "}
@@ -348,17 +402,17 @@ export default function LinkAccount() {
                   >
                     <div className="mt-4 bg-base/60 border border-line rounded-md p-4 shadow-neo-inset space-y-3">
                       <div className="flex gap-2">
-                        <ModeButton icon={Calendar} label="Monthly · KES 500" active={activateMode === "monthly"} onClick={() => setActivateMode("monthly")} />
-                        <ModeButton icon={Calendar} label="Yearly · KES 5,000" active={activateMode === "yearly"} onClick={() => setActivateMode("yearly")} />
+                        <ModeButton icon={Calendar} label="Monthly · KES 300" active={activateMode === "monthly"} onClick={() => setActivateMode("monthly")} />
+                        <ModeButton icon={Calendar} label="Yearly · KES 1,500" active={activateMode === "yearly"} onClick={() => setActivateMode("yearly")} />
                         <ModeButton icon={Coins} label="Buy tokens" active={activateMode === "tokens"} onClick={() => setActivateMode("tokens")} />
                       </div>
 
                       {activateMode === "tokens" ? (
                         <div>
-                          <span className="text-xs text-muted uppercase tracking-wide">Tokens (min 25, 1 token = KES 1 = 1 transaction)</span>
+                          <span className="text-xs text-muted uppercase tracking-wide">Tokens (min 50, 1 token = KES 1 = 1 transaction)</span>
                           <input
                             type="number"
-                            min={25}
+                            min={50}
                             value={tokenAmount}
                             onChange={(e) => setTokenAmount(e.target.value)}
                             className="mt-1 w-full bg-panel border border-line rounded-md px-3 py-2 text-white shadow-neo-inset focus:outline-none focus:ring-2 focus:ring-mint/60"
@@ -456,7 +510,7 @@ function UsagePill({ account }) {
     );
   }
   const used = account.free_tx_used ?? 0;
-  const remaining = Math.max(0, 25 - used);
+  const remaining = Math.max(0, 5 - used);
   if (remaining === 0) {
     if ((account.token_balance ?? 0) >= 1) {
       return <span className="text-xs px-2 py-1 rounded-full text-mint bg-mintdim">{account.token_balance} token{account.token_balance === 1 ? "" : "s"} left</span>;
