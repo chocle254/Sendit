@@ -2,10 +2,13 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ShieldCheck, Users, LogOut } from "lucide-react";
+import { ShieldCheck, Users, LogOut, LayoutDashboard } from "lucide-react";
 import Logo from "./Logo";
 
-const NAV = [{ href: "/admin", label: "Accounts", icon: Users }];
+const NAV = [
+  { href: "/admin", label: "Overview", icon: LayoutDashboard },
+  { href: "/admin/accounts", label: "Accounts", icon: Users },
+];
 
 export default function AdminLayout({ children, admin }) {
   const router = useRouter();
@@ -38,7 +41,7 @@ export default function AdminLayout({ children, admin }) {
         </div>
         <nav className="space-y-1">
           {NAV.map((item) => {
-            const active = router.pathname === item.href;
+            const active = item.href === "/admin" ? router.pathname === "/admin" : router.pathname.startsWith(item.href);
             const Icon = item.icon;
             return (
               <Link
