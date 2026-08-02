@@ -98,9 +98,9 @@ export default function Home() {
         </div>
 
         <div id="how" className="grid md:grid-cols-3 gap-5 mt-24">
-          <Step n="01" title="Link an account" body="Enter your till or paybill number and your own Daraja app credentials." delay={0} />
-          <Step n="02" title="Pay the one-time activation fee" body="A KES 350 STK prompt confirms the account is really yours." delay={1} />
-          <Step n="03" title="Get your API key" body="Call one endpoint from your app. We handle the rest and notify your webhook." delay={2} />
+          <Step n="01" title="Link an account" body="Enter your till or paybill number — no Daraja credentials needed, Sendit's own app authenticates every push." delay={0} />
+          <Step n="02" title="Get your API key" body="Your first account gets 5 free STK pushes immediately, no charge to link." delay={1} />
+          <Step n="03" title="Call one endpoint" body="We handle the rest and notify your webhook. Subscribe or buy tokens once your free pushes are used." delay={2} />
         </div>
 
         <motion.div
