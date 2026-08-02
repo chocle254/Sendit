@@ -15,7 +15,7 @@ export default function Webhooks() {
   // Same gating lib/db.js's evaluateAccountUsage() applies before an
   // stkpush — there's no literal 'active' status, so a trial account with
   // free credits remaining still needs to show up here.
-  const FREE_TX_LIMIT = 25;
+  const FREE_TX_LIMIT = 5;
   function load() {
     Promise.all([
       fetch("/api/webhooks").then((r) => r.json()),
