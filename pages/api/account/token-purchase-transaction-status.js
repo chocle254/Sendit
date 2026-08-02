@@ -20,8 +20,8 @@ export default async function handler(req, res) {
     const account = await getAccountById(txn.account_id);
     if (!account || account.user_id !== userId) return res.status(404).json({ error: "Account not found." });
 
-    if (txn.status === "success" || txn.status === "failed") {
-      return res.status(200).json({ status: txn.status });
+    if (txn.status === "success" || txn.status === "failed" || txn.status === "cancelled") {
+      return res.status(200).json({ status: txn.status, resultDesc: txn.result_desc });
     }
 
     if (!process.env.PLATFORM_CONSUMER_KEY || !process.env.PLATFORM_CONSUMER_SECRET || !process.env.PLATFORM_SHORTCODE || !process.env.PLATFORM_PASSKEY) {
@@ -40,18 +40,19 @@ export default async function handler(req, res) {
     const status = mapQueryStatus(data);
     if (status === "pending") return res.status(200).json({ status: "pending" });
 
+    const resultDesc = data.ResultDesc || (status === "success" ? "Completed" : status === "cancelled" ? "Cancelled by user" : "Failed");
     await completeTransaction({
       checkoutRequestId,
       status,
       mpesaReceipt: txn.mpesa_receipt || null,
-      resultDesc: data.ResultDesc || (status === "success" ? "Completed" : "Failed or cancelled"),
+      resultDesc,
     });
 
     if (status === "success") {
       await creditTokens(account.id, txn.amount, "purchase", txn.id);
     }
 
-    res.status(200).json({ status });
+    res.status(200).json({ status, resultDesc });
   } catch (err) {
     console.error("token purchase status check failed:", err);
     res.status(200).json({ status: "pending" });
