@@ -7,7 +7,7 @@ import { stkPush } from "../../../lib/daraja";
 // kills the connection (not a clean error response) after Safaricom has
 // already accepted the push, so the client sees a network failure even
 // though the charge went through. Give this real headroom.
-export const config = { maxDuration: 30 };
+export const maxDuration = 30;
 
 // 1 token = 1 KES = 1 extra transaction once the free tier is used up
 // (also doubles as the parole penalty buffer). Minimum MIN_TOKENS_PURCHASE.
