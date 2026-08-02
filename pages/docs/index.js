@@ -89,15 +89,19 @@ function GettingStarted({ email }) {
 
       <h2>3. Get your API key</h2>
       <p>
-        New accounts start on a <strong>free trial — 25 STK push requests</strong> (successful or
-        failed, both count) with no charge. Your API key is available immediately on the dashboard.
+        Your <strong>first</strong> linked account starts on a free trial — <strong>5 STK push
+        requests</strong> (successful or failed, both count), no charge. This free tier is granted
+        once per Sendit user, not per account — accounts linked after your first one need a
+        subscription or purchased tokens from the start. Your API key is available immediately on
+        the dashboard either way.
       </p>
 
-      <h2>4. Activate for continued use</h2>
+      <h2>4. Subscribe or buy tokens for continued use</h2>
       <p>
-        Once your 25 free requests are used, or after 30 days from activation, you'll need to pay a
-        one-time KES 350 fee via <strong>Activate account</strong> to keep using the API for another
-        30 days.
+        Once your free requests are used, choose either a subscription for unlimited STK pushes —
+        <strong> KES 300/month</strong> or <strong>KES 1,500/year</strong> — or buy tokens, where
+        1 token = KES 1 = 1 transaction (minimum 50 tokens per purchase). Do this from{" "}
+        <strong>Linked accounts</strong> in the dashboard.
       </p>
 
       <h2>5. Call the API</h2>
