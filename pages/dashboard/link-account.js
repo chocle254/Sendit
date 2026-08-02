@@ -5,7 +5,15 @@ import DashboardLayout from "../../components/DashboardLayout";
 import Skeleton from "../../components/Skeleton";
 import { Field } from "../signup";
 
-const PLAN_PRICE = { monthly: 300, yearly: 1500 };
+const PLAN_PRICE = { monthly: 10, yearly: 10 }; // kept in sync with lib/db.js PLAN_PRICES_KES (lowered for testing)
+
+function formatExpiry(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-KE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
 
 const EMPTY_FORM = {
   businessName: "",
@@ -31,7 +39,7 @@ export default function LinkAccount() {
   const [activatingId, setActivatingId] = useState(null); // which account's panel is open
   const [activateMode, setActivateMode] = useState("monthly"); // 'monthly' | 'yearly' | 'tokens'
   const [activatePhone, setActivatePhone] = useState("");
-  const [tokenAmount, setTokenAmount] = useState("100");
+  const [tokenAmount, setTokenAmount] = useState("10");
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState("");
   const [activateMessage, setActivateMessage] = useState("");
@@ -103,7 +111,7 @@ export default function LinkAccount() {
     setActivatingId((current) => (current === accountId ? null : accountId));
     setActivateMode("monthly");
     setActivatePhone("");
-    setTokenAmount("100");
+    setTokenAmount("10");
     setActivateError("");
     setActivateMessage("");
   }
@@ -182,9 +190,13 @@ export default function LinkAccount() {
           const qData = await qRes.json();
           if (qData.status === "success") {
             clearInterval(interval);
-            setActivateMessage(mode === "tokens" ? "Tokens added to your balance." : "Subscription activated.");
             const statusRes = await fetch(`/api/account/status?id=${accountId}`);
             const statusData = await statusRes.json();
+            setActivateMessage(
+              mode === "tokens"
+                ? `Tokens added. New balance: ${statusData.tokenBalance}.`
+                : `Subscription activated — active until ${formatExpiry(statusData.planExpiresAt)}.`
+            );
             setAccounts((prev) =>
               prev.map((a) =>
                 a.id === accountId
@@ -410,17 +422,17 @@ export default function LinkAccount() {
                   >
                     <div className="mt-4 bg-base/60 border border-line rounded-md p-4 shadow-neo-inset space-y-3">
                       <div className="flex gap-2">
-                        <ModeButton icon={Calendar} label="Monthly · KES 300" active={activateMode === "monthly"} onClick={() => setActivateMode("monthly")} />
-                        <ModeButton icon={Calendar} label="Yearly · KES 1,500" active={activateMode === "yearly"} onClick={() => setActivateMode("yearly")} />
+                        <ModeButton icon={Calendar} label="Monthly · KES 10" active={activateMode === "monthly"} onClick={() => setActivateMode("monthly")} />
+                        <ModeButton icon={Calendar} label="Yearly · KES 10" active={activateMode === "yearly"} onClick={() => setActivateMode("yearly")} />
                         <ModeButton icon={Coins} label="Buy tokens" active={activateMode === "tokens"} onClick={() => setActivateMode("tokens")} />
                       </div>
 
                       {activateMode === "tokens" ? (
                         <div>
-                          <span className="text-xs text-muted uppercase tracking-wide">Tokens (min 50, 1 token = KES 1 = 1 transaction)</span>
+                          <span className="text-xs text-muted uppercase tracking-wide">Tokens (min 10, 1 token = KES 1 = 1 transaction)</span>
                           <input
                             type="number"
-                            min={50}
+                            min={10}
                             value={tokenAmount}
                             onChange={(e) => setTokenAmount(e.target.value)}
                             className="mt-1 w-full bg-panel border border-line rounded-md px-3 py-2 text-white shadow-neo-inset focus:outline-none focus:ring-2 focus:ring-mint/60"
@@ -513,7 +525,7 @@ function UsagePill({ account }) {
     const label = account.plan === "yearly" ? "Yearly plan" : "Monthly plan";
     return (
       <span className="text-xs px-2 py-1 rounded-full text-mint bg-mintdim">
-        {label} · until {new Date(account.plan_expires_at).toLocaleDateString()}
+        {label} · until {formatExpiry(account.plan_expires_at)}
       </span>
     );
   }
