@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { motion } from "framer-motion";
 import { LayoutDashboard, Link2, ArrowLeftRight, Webhook, LogOut } from "lucide-react";
 import Logo from "./Logo";
+import NotificationBell from "./NotificationBell";
 
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -23,7 +24,10 @@ export default function DashboardLayout({ children }) {
     <div className="min-h-screen bg-base text-white flex">
       {/* Desktop sidebar */}
       <aside className="w-56 shrink-0 border-r border-line/60 bg-panel/50 backdrop-blur-xl px-4 py-6 hidden md:flex md:flex-col">
-        <div className="mb-8 px-2"><Logo size={24} /></div>
+        <div className="mb-8 px-2 flex items-center justify-between">
+          <Logo size={24} />
+          <NotificationBell />
+        </div>
         <nav className="space-y-1">
           {NAV.map((item) => {
             const active = router.pathname === item.href;
@@ -61,9 +65,12 @@ export default function DashboardLayout({ children }) {
       {/* Mobile top bar */}
       <div className="md:hidden fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 py-3 bg-panel/70 backdrop-blur-xl border-b border-line/60">
         <Logo size={20} />
-        <button onClick={logout} className="text-muted hover:text-danger p-1.5 -mr-1.5" aria-label="Log out">
-          <LogOut size={18} strokeWidth={2} />
-        </button>
+        <div className="flex items-center gap-3">
+          <NotificationBell />
+          <button onClick={logout} className="text-muted hover:text-danger p-1.5" aria-label="Log out">
+            <LogOut size={18} strokeWidth={2} />
+          </button>
+        </div>
       </div>
 
       <main className="flex-1 px-6 py-8 pt-20 pb-24 md:pt-8 md:pb-8 max-w-4xl w-full mx-auto md:mx-0">
