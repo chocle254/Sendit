@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import DashboardLayout from "../../components/DashboardLayout";
 import Skeleton from "../../components/Skeleton";
 import Signal from "../../components/Signal";
+import LiveLineChart, { THEME } from "../../components/LiveLineChart";
 
 export default function DashboardOverview() {
   const [stats, setStats] = useState(null);
@@ -11,18 +12,43 @@ export default function DashboardOverview() {
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
 
+  // Polling rather than a one-shot fetch: token/plan purchases and incoming
+  // STK pushes are confirmed asynchronously via Safaricom callbacks that hit
+  // the server, not the browser, so without this the numbers here only ever
+  // update on a manual page refresh. 5s keeps things feeling live without
+  // hammering the API; loading state only applies to the very first load so
+  // the UI doesn't flicker on every poll.
   useEffect(() => {
-    fetch("/api/transactions/list")
-      .then((r) => r.json())
-      .then((d) => {
-        setStats(d.stats);
-        setTransactions(d.transactions || []);
-      })
-      .finally(() => setLoadingStats(false));
-    fetch("/api/account/list")
-      .then((r) => r.json())
-      .then((d) => setAccounts(d.accounts || []))
-      .finally(() => setLoadingAccounts(false));
+    let cancelled = false;
+
+    function loadStats(isFirstLoad) {
+      fetch("/api/transactions/list")
+        .then((r) => r.json())
+        .then((d) => {
+          if (cancelled) return;
+          setStats(d.stats);
+          setTransactions(d.transactions || []);
+        })
+        .finally(() => {
+          if (!cancelled && isFirstLoad) setLoadingStats(false);
+        });
+      fetch("/api/account/list")
+        .then((r) => r.json())
+        .then((d) => {
+          if (cancelled) return;
+          setAccounts(d.accounts || []);
+        })
+        .finally(() => {
+          if (!cancelled && isFirstLoad) setLoadingAccounts(false);
+        });
+    }
+
+    loadStats(true);
+    const interval = setInterval(() => loadStats(false), 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   // "Active" means the account can transact right now — mirrors the same
@@ -87,6 +113,15 @@ export default function DashboardOverview() {
           </div>
         )}
       </motion.div>
+
+      <div className="mb-8">
+        <LiveLineChart
+          title="Amount pushed through your STK pushes"
+          fetchUrl={(granularity) => `/api/transactions/series?granularity=${granularity}`}
+          lines={[{ dataKey: "amountPushed", label: "Amount pushed", color: THEME.mint }]}
+          emptyLabel="No STK push activity in this window yet."
+        />
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}
