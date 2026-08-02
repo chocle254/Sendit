@@ -40,6 +40,7 @@ export default function Transactions() {
                   <th className="py-3 px-4 font-normal">Phone</th>
                   <th className="py-3 px-4 font-normal">Receipt</th>
                   <th className="py-3 px-4 font-normal">Status</th>
+                  <th className="py-3 px-4 font-normal">Reason</th>
                   <th className="py-3 px-4 font-normal">Date</th>
                 </tr>
               </thead>
@@ -58,6 +59,9 @@ export default function Transactions() {
                     <td className="py-3 px-4">{t.phone}</td>
                     <td className="py-3 px-4 font-mono text-xs">{t.mpesa_receipt || "—"}</td>
                     <td className="py-3 px-4"><StatusBadge status={t.status} /></td>
+                    <td className="py-3 px-4 text-muted text-xs max-w-[220px] truncate" title={t.result_desc || ""}>
+                      {t.status === "pending" ? "—" : t.result_desc || "—"}
+                    </td>
                     <td className="py-3 px-4 text-muted">{new Date(t.created_at).toLocaleString()}</td>
                   </motion.tr>
                 ))}
