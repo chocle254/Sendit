@@ -22,7 +22,7 @@ export default async function handler(req, res) {
 
     await completeTransaction({
       checkoutRequestId: result.checkoutRequestId,
-      status: result.success ? "success" : "failed",
+      status: result.status, // 'success' | 'cancelled' | 'failed'
       mpesaReceipt: result.mpesaReceipt,
       resultDesc: result.resultDesc,
     });
