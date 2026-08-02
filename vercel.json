@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "pages/api/account/buy-tokens.js": { "maxDuration": 30 },
+    "pages/api/account/subscribe.js": { "maxDuration": 30 },
+    "pages/api/account/activate.js": { "maxDuration": 30 },
+    "pages/api/v1/stkpush.js": { "maxDuration": 30 }
+  }
+}
