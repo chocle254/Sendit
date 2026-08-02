@@ -6,20 +6,31 @@ import Logo from "../components/Logo";
 
 export default function Signup() {
   const router = useRouter();
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [tosAccepted, setTosAccepted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e) {
     e.preventDefault();
     setError("");
+    if (!ageConfirmed) {
+      setError("Please confirm you're 18 years or older to sign up.");
+      return;
+    }
+    if (!tosAccepted) {
+      setError("Please agree to the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ fullName, email, password, ageConfirmed, tosAccepted }),
       });
       let data = {};
       try {
@@ -40,7 +51,7 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen bg-base text-white flex items-center justify-center px-6 relative overflow-hidden">
+    <div className="min-h-screen bg-base text-white flex items-center justify-center px-6 relative overflow-hidden py-12">
       <div className="pointer-events-none absolute top-1/4 -right-24 h-80 w-80 rounded-full bg-mint/10 blur-3xl animate-float" />
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -52,8 +63,37 @@ export default function Signup() {
         <h1 className="font-display text-2xl font-semibold mb-1">Create your account</h1>
         <p className="text-muted text-sm mb-6">Link a till and start accepting M-Pesa in minutes.</p>
         <form onSubmit={onSubmit} className="space-y-4">
+          <Field label="Full name" type="text" value={fullName} onChange={setFullName} required />
           <Field label="Email" type="email" value={email} onChange={setEmail} required />
           <Field label="Password" type="password" value={password} onChange={setPassword} required minLength={6} />
+
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={ageConfirmed}
+              onChange={(e) => setAgeConfirmed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-line bg-base/60 accent-mint"
+            />
+            <span className="text-xs text-muted leading-relaxed">
+              I confirm that I am 18 years of age or older.
+            </span>
+          </label>
+
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={tosAccepted}
+              onChange={(e) => setTosAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-line bg-base/60 accent-mint"
+            />
+            <span className="text-xs text-muted leading-relaxed">
+              I agree to the{" "}
+              <Link href="/terms" target="_blank" className="text-mint hover:underline">Terms of Service</Link>
+              {" "}and{" "}
+              <Link href="/privacy" target="_blank" className="text-mint hover:underline">Privacy Policy</Link>.
+            </span>
+          </label>
+
           <AnimatePresence>
             {error && (
               <motion.div
