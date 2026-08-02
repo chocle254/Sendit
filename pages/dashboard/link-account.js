@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Copy, Eye, EyeOff, Trash2, Zap, Calendar, Coins } from "lucide-react";
 import DashboardLayout from "../../components/DashboardLayout";
@@ -20,6 +20,11 @@ export default function LinkAccount() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  // setActivating(true) is async — a fast double-click can fire this
+  // handler twice before React re-renders the disabled button, which for
+  // an STK push means a real second charge. A ref updates synchronously,
+  // so it closes that gap in a way state alone can't.
+  const activatingRef = useRef(false);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [error, setError] = useState("");
   const [reveal, setReveal] = useState({});
@@ -105,6 +110,8 @@ export default function LinkAccount() {
 
   async function submitActivate(e, accountId) {
     e.preventDefault();
+    if (activatingRef.current) return; // already in flight — ignore the duplicate click
+    activatingRef.current = true;
     setActivateError("");
     setActivating(true);
     const mode = activateMode; // snapshot — activateMode can change while the STK prompt is out
@@ -138,6 +145,7 @@ export default function LinkAccount() {
       setActivateError("Couldn't reach the server. Check your connection and try again.");
     } finally {
       setActivating(false);
+      activatingRef.current = false;
     }
   }
 
